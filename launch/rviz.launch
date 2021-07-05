@@ -1,0 +1,11 @@
+<launch>
+
+  <arg name="name" default="default_simulation" />
+
+  <group>
+
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find visualization_brubotics)/rviz/$(arg name).rviz" />
+
+  </group>
+
+</launch>

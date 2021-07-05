@@ -84,29 +84,31 @@ Visualization Manager:
       Frames:
         All Enabled: false
         base_link:
-          Value: true
+          Value: false
         base_link_frd:
-          Value: true
+          Value: false
         common_origin:
-          Value: true
+          Value: false
+        gazebo_user_camera:
+          Value: false
         map:
-          Value: true
+          Value: false
         map_ned:
-          Value: true
+          Value: false
         odom:
-          Value: true
+          Value: false
         odom_ned:
-          Value: true
+          Value: false
         uav1/fcu:
           Value: true
         uav1/fcu/arms:
-          Value: true
+          Value: false
         uav1/fcu/arms_red:
-          Value: true
+          Value: false
         uav1/fcu/props:
-          Value: true
+          Value: false
         uav1/fcu/uav_marker:
-          Value: true
+          Value: false
         uav1/fcu_untilted:
           Value: false
         uav1/garmin:
@@ -122,13 +124,13 @@ Visualization Manager:
         uav2/fcu:
           Value: true
         uav2/fcu/arms:
-          Value: true
+          Value: false
         uav2/fcu/arms_red:
-          Value: true
+          Value: false
         uav2/fcu/props:
-          Value: true
+          Value: false
         uav2/fcu/uav_marker:
-          Value: true
+          Value: false
         uav2/fcu_untilted:
           Value: false
         uav2/garmin:
@@ -141,10 +143,10 @@ Visualization Manager:
           Value: false
         uav2/utm_origin:
           Value: false
-      Marker Scale: 1
+      Marker Scale: 8
       Name: TF
-      Show Arrows: true
-      Show Axes: true
+      Show Arrows: false
+      Show Axes: false
       Show Names: true
       Tree:
         common_origin:
@@ -162,6 +164,8 @@ Visualization Manager:
             uav1/garmin:
               {}
             uav1/gps_origin:
+              gazebo_user_camera:
+                {}
               uav1/utm_origin:
                 {}
             uav1/local_origin:
@@ -656,25 +660,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 35.399593353271484
+      Distance: 24.058574676513672
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 1.7236809730529785
-        Y: 2.559844970703125
+        X: 0.505856990814209
+        Y: 0.8994197845458984
         Z: 7.428379831253551e-6
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.33539801836013794
+      Pitch: 0.3203980624675751
       Target Frame: common_origin
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.8385837078094482
+      Yaw: 3.758579969406128
     Saved: ~
 Window Geometry:
   Displays:

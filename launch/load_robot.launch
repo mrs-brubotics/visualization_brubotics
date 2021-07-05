@@ -1,6 +1,6 @@
 <launch>
 
-  <arg name="uav_type" default="$(optenv UAV_TYPE f450)"/>
+  <arg name="uav_type" default="$(optenv UAV_TYPE f550)"/>
 
       <!-- other args -->
   <arg name="standalone" default="true" />
@@ -32,7 +32,7 @@
 
   <node pkg="nodelet" type="nodelet" name="tf_connector_dummy" args="$(arg nodelet) mrs_uav_odometry/TFConnectorDummy $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
 
-    <rosparam file="$(find testing_brubotics)/config/tf_connector_avoidance.yaml" />
+    <rosparam file="$(find visualization_brubotics)/config/tf_connector_avoidance.yaml" />
 
     <!-- Subscribers -->
     <remap from="~tf_in" to="/tf" />
