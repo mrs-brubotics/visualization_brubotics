@@ -1,0 +1,46 @@
+<launch>
+
+  <arg name="uav_type" default="$(optenv UAV_TYPE f450)"/>
+
+      <!-- other args -->
+  <arg name="standalone" default="true" />
+  <arg name="debug" default="false" />
+
+  <arg     if="$(eval arg('standalone') or arg('debug'))" name="nodelet" value="standalone" />
+  <arg unless="$(eval arg('standalone') or arg('debug'))" name="nodelet" value="load" />
+  <arg     if="$(eval arg('standalone') or arg('debug'))" name="nodelet_manager" value="" />
+  <arg unless="$(eval arg('standalone') or arg('debug'))" name="nodelet_manager" value="tf_connector_nodelet_manager" />
+
+  <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
+  <arg unless="$(arg debug)" name="launch_prefix" value="" />
+
+  <group ns="uav1">
+    <param name="robot_model" command="$(find visualization_brubotics)/scripts/generate_robot_model_xml.py $(find visualization_brubotics)/data/$(arg uav_type).xml uav1/fcu $(find visualization_brubotics)" />
+    <node name="tf_published_uav_marker_link" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 0 0 0 uav1/fcu uav1/fcu/uav_marker" />
+    <node name="tf_published_props_link" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 0 0 0 uav1/fcu uav1/fcu/props" />
+    <node name="tf_published_arms_link" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 0 0 0 uav1/fcu uav1/fcu/arms" />
+    <node name="tf_published_arms_red_link" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 0 0 0 uav1/fcu uav1/fcu/arms_red" />
+  </group>
+
+  <group ns="uav2">
+    <param name="robot_model" command="$(find visualization_brubotics)/scripts/generate_robot_model_xml.py $(find visualization_brubotics)/data/$(arg uav_type).xml uav2/fcu $(find visualization_brubotics)" />
+    <node name="tf_published_uav_marker_link" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 0 0 0 uav2/fcu uav2/fcu/uav_marker" />
+    <node name="tf_published_props_link" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 0 0 0 uav2/fcu uav2/fcu/props" />
+    <node name="tf_published_arms_link" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 0 0 0 uav2/fcu uav2/fcu/arms" />
+    <node name="tf_published_arms_red_link" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 0 0 0 uav2/fcu uav2/fcu/arms_red" />
+  </group>
+
+  <node pkg="nodelet" type="nodelet" name="tf_connector_dummy" args="$(arg nodelet) mrs_uav_odometry/TFConnectorDummy $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
+
+    <rosparam file="$(find testing_brubotics)/config/tf_connector_avoidance.yaml" />
+
+    <!-- Subscribers -->
+    <remap from="~tf_in" to="/tf" />
+
+    <!-- Publishers -->
+    <remap from="~tf_out" to="/tf" />
+
+  </node>
+
+</launch>
+
