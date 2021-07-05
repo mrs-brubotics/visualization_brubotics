@@ -6,4 +6,4 @@ This visualization only works with the [2_two_drones_D-ERG simulation](https://g
 Be sure to have an updated ```.yaml``` file for the rviz part.
 It must be like that :
 
-![thumbnail](.fig/yaml_file.jpg)
+![](https://github.com/mrs-brubotics/visualization_brubotics/blob/main/.fig/yaml_file.png)
