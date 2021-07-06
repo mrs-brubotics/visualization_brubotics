@@ -1,6 +1,6 @@
 <launch>
 
-  <arg name="uav_type" default="$(optenv UAV_TYPE f550)"/>
+  <arg name="uav_type" default="$(optenv UAV_TYPE f450)"/>
 
       <!-- other args -->
   <arg name="standalone" default="true" />
