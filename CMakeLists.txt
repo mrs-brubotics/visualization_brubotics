@@ -7,7 +7,10 @@ project(visualization_brubotics)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin REQUIRED COMPONENTS
+    roscpp
+    std_msgs
+)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -99,10 +102,6 @@ find_package(catkin REQUIRED)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES visualization_brubotics
-#  CATKIN_DEPENDS other_catkin_pkg
-#  DEPENDS system_lib
 )
 
 ###########
@@ -112,14 +111,21 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
-# ${catkin_INCLUDE_DIRS}
+  include
+  ${catkin_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
 )
 
-## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/visualization_brubotics.cpp
+#This will create executables of the nodes
+add_executable(sphere src/sphere.cpp)
+
+# ## Declare a C++ library
+# add_library(visualization_brubotics
+#   src/sphere.cpp
 # )
+
+#This will link executables to the appropriate libraries
+target_link_libraries(sphere ${catkin_LIBRARIES})
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -152,6 +158,18 @@ include_directories(
 
 # all install targets should use catkin DESTINATION variables
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
+
+
+# install(DIRECTORY launch
+#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+# )
+
+# install(DIRECTORY config
+#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+# )
+# install(FILES visualization_brubotics_plugin.xml
+#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+# )
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
