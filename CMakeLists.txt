@@ -10,6 +10,8 @@ project(visualization_brubotics)
 find_package(catkin REQUIRED COMPONENTS
     roscpp
     std_msgs
+    mrs_msgs
+    geometry_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -102,6 +104,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
+  CATKIN_DEPENDS mrs_msgs geometry_msgs
 )
 
 ###########
