@@ -15,9 +15,9 @@
 double marker_radius = 1.5;
 bool test1 = false;
 
-void diagnostics_callback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& diagnostics);
-void current_pose_callback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number);
-void publishMarker(const std::vector<geometry_msgs::Pose>& obj_pose);
+void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& diagnostics);
+void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number);
+void PublishMarker(const std::vector<geometry_msgs::Pose>& obj_pose);
 
 
 // Publishers and subscribers
@@ -32,7 +32,7 @@ geometry_msgs::PoseArray uav_current_pose;
 std::vector<geometry_msgs::Pose> uav_current_poses(MAX_UAV_NUMBER);
 mrs_msgs::FutureTrajectory uav_applied_ref;
 
-void diagnostics_callback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& msg){
+void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& msg){
     if (test1)
         return;
     diagnostics.active_vehicles = msg -> active_vehicles;
@@ -40,13 +40,13 @@ void diagnostics_callback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& msg){
     test1 = true;
 }
 
-void current_pose_callback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number){
+void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number){
     uav_current_pose.poses = msg -> poses;
     uav_current_poses[uav_number-1] = uav_current_pose.poses[uav_number-1];
     //ROS_INFO_STREAM("uav1: " << uav_current_poses[0] << "uav2: " << uav_current_poses[1]);
 }
 
-void publishMarker(const std::vector<geometry_msgs::Pose>& obj_pose){
+void PublishMarker(const std::vector<geometry_msgs::Pose>& obj_pose){
     visualization_msgs::Marker marker;
     visualization_msgs::MarkerArray markers;
 
@@ -93,7 +93,7 @@ int main(int argc, char **argv){
     // Subscribers and publishers
 
     // create subscriber for active UAV list
-    diagnostics_sub = n.subscribe("mrs_drone_spawner/diagnostics", 10, diagnostics_callback);
+    diagnostics_sub = n.subscribe("mrs_drone_spawner/diagnostics", 10, DiagnosticsCallback);
     while(!test1){
         ros::spinOnce();
         r.sleep();
@@ -104,7 +104,7 @@ int main(int argc, char **argv){
 
     for(int i=0; i<diagnostics.active_vehicles.size(); i++){
         topic[i] = "/" + diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/custom_predicted_poses";
-        f[i] = boost::bind(current_pose_callback, _1, i+1);
+        f[i] = boost::bind(CurrentPoseCallback, _1, i+1);
         uav_current_pose_sub[i] = n.subscribe(topic[i], 10, f[i]);
     }
 
@@ -112,7 +112,7 @@ int main(int argc, char **argv){
     marker_pub = n.advertise<visualization_msgs::MarkerArray>("visualization_marker", 10);
 
     while(ros::ok){
-        publishMarker(uav_current_poses);
+        PublishMarker(uav_current_poses);
         ros::spinOnce();
         r.sleep();
     }
