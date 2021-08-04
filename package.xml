@@ -56,7 +56,6 @@
   <depend>mrs_msgs</depend>
   <depend>geometry_msgs</depend>
   <!-- added by brubotics: -->
-  <depend>std_msgs</depend>
   <!-- added by brubotics: -->
   <exec_depend>message_runtime</exec_depend>
 

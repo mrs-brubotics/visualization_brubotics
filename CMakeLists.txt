@@ -9,7 +9,6 @@ project(visualization_brubotics)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
     roscpp
-    std_msgs
     mrs_msgs
     geometry_msgs
 )
