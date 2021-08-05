@@ -49,15 +49,25 @@
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>message_generation</build_depend>
-  <build_depend>roscpp</build_depend>
-  <build_export_depend>roscpp</build_export_depend>
-  <exec_depend>roscpp</exec_depend>
+
   <depend>mrs_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>Eigen</depend>
+
+  <build_depend>message_generation</build_depend>
+  <build_depend>eigen</build_depend>
+  <build_depend>eigen_conversions</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>tf2_eigen</build_depend>
+
+  <build_export_depend>roscpp</build_export_depend>
+  
+  <exec_depend>roscpp</exec_depend>
+  
   <!-- added by brubotics: -->
   <!-- added by brubotics: -->
   <exec_depend>message_runtime</exec_depend>
+  <exec_depend>tf2_eigen</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

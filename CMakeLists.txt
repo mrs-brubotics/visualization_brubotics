@@ -11,11 +11,13 @@ find_package(catkin REQUIRED COMPONENTS
     roscpp
     mrs_msgs
     geometry_msgs
+    tf2_eigen
+    eigen_conversions
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-
+find_package(Eigen3 REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -103,7 +105,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  CATKIN_DEPENDS mrs_msgs geometry_msgs
+  CATKIN_DEPENDS 
+    mrs_msgs 
+    geometry_msgs
+    Eigen
 )
 
 ###########
@@ -116,6 +121,7 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 #This will create executables of the nodes
