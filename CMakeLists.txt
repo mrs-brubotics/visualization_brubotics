@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
     geometry_msgs
     tf2_eigen
     eigen_conversions
+    mrs_lib
 )
 
 ## System dependencies are found with CMake's conventions
@@ -109,6 +110,7 @@ catkin_package(
     mrs_msgs 
     geometry_msgs
     Eigen
+    mrs_lib
 )
 
 ###########

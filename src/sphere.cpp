@@ -6,6 +6,8 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseArray.h>
 #include <Eigen/Dense>
+#include <mrs_lib/param_loader.h>
+
 #include <ros/ros.h>
 
 #include <iostream>
@@ -14,6 +16,9 @@
 #define MAX_UAV_NUMBER 10
 
 
+int _DERG_strategy_id_ = 2;
+double Ra = 0.35;
+double Sa_ = 1.5;
 double marker_radius = 1.5;
 bool test1 = false;
 std::array<std::array<double, 2>, 3> uav_applied_ref;
@@ -195,77 +200,90 @@ void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& c
 }
 
 void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref){
-    visualization_msgs::Marker marker;
-    visualization_msgs::MarkerArray markers;
-    visualization_msgs::Marker marker_sphere;
+    visualization_msgs::Marker error_sphere;
+    visualization_msgs::Marker current_pose_marker;
+    visualization_msgs::Marker sphere_applied_ref;
     visualization_msgs::Marker cylinder;
+    visualization_msgs::Marker cylinder_sphere1;
+    visualization_msgs::Marker cylinder_sphere2;
+    visualization_msgs::Marker line;
+    visualization_msgs::MarkerArray all_markers;
     geometry_msgs::Pose cylinder_pose;
+    geometry_msgs::Point p;
     double cylinder_height;
 
     // loop for each drone
     for(int i=0; i<2; i++){
 
-        // sphere at applied ref pose
-        marker_sphere.header.frame_id = "/common_origin";
-        marker_sphere.header.stamp = ros::Time::now();
-        marker_sphere.ns = "marker_sphere";
-        marker_sphere.id = i;
-        marker_sphere.type = visualization_msgs::Marker::SPHERE; 
-        marker_sphere.action = visualization_msgs::Marker::ADD;
-        marker_sphere.pose.position.x = ref[0][i];
-        marker_sphere.pose.position.y = ref[1][i];
-        marker_sphere.pose.position.z = ref[2][i];
-        marker_sphere.pose.orientation.x = 0;
-        marker_sphere.pose.orientation.y = 0;
-        marker_sphere.pose.orientation.z = 0;
-        marker_sphere.pose.orientation.w = 0.0;
-        marker_sphere.scale.x = 1.0; 
-        marker_sphere.scale.y = 1.0; 
-        marker_sphere.scale.z = 1.0; 
-        marker_sphere.color.r = 0.0f;
-        marker_sphere.color.g = 1.0f;
-        marker_sphere.color.b = 1.0f;
-        marker_sphere.color.a = 0.50;
-        marker_sphere.lifetime = ros::Duration();
-        markers.markers.push_back(marker_sphere);
-        
-        //sphere at current pose
-        marker.header.frame_id = "/common_origin";
-        marker.header.stamp = ros::Time::now();
-        marker.ns = "marker";
-        marker.id = i;
-        marker.type = visualization_msgs::Marker::SPHERE; 
-        marker.action = visualization_msgs::Marker::ADD;
+        // error sphere at applied ref pose
+        error_sphere.header.frame_id = "/common_origin";
+        error_sphere.header.stamp = ros::Time::now();
+        error_sphere.ns = "error_sphere";
+        error_sphere.id = i;
+        error_sphere.type = visualization_msgs::Marker::SPHERE; 
+        error_sphere.action = visualization_msgs::Marker::ADD;
+        error_sphere.pose.position.x = ref[0][i];
+        error_sphere.pose.position.y = ref[1][i];
+        error_sphere.pose.position.z = ref[2][i];
+        error_sphere.pose.orientation.x = 0;
+        error_sphere.pose.orientation.y = 0;
+        error_sphere.pose.orientation.z = 0;
+        error_sphere.pose.orientation.w = 0.0;
+        error_sphere.scale.x = 2*Sa_; 
+        error_sphere.scale.y = 2*Sa_; 
+        error_sphere.scale.z = 2*Sa_; 
+        error_sphere.color.r = 0.8f;
+        error_sphere.color.g = 0.965f;
+        error_sphere.color.b = 1.0f;
+        error_sphere.color.a = 0.40;
+        error_sphere.lifetime = ros::Duration();
+        all_markers.markers.push_back(error_sphere);
 
-        //for fixed sphere
-        // marker.pose.position.x = 5.0; 
-        // marker.pose.position.y = 5.0; 
-        // marker.pose.position.z = 5.0;  
-        // marker.pose.orientation.x = 0.0;
-        // marker.pose.orientation.y = 0.0;
-        // marker.pose.orientation.z = 0.0;
-        // marker.pose.orientation.w = 1.0;
+        // small sphere at current pose
+        // current_pose_marker.header.frame_id = "/common_origin";
+        // current_pose_marker.header.stamp = ros::Time::now();
+        // current_pose_marker.ns = "current_pose_marker";
+        // current_pose_marker.id = i;
+        // current_pose_marker.type = visualization_msgs::Marker::SPHERE; 
+        // current_pose_marker.action = visualization_msgs::Marker::ADD;
+        // current_pose_marker.pose = obj_pose[i];
+        // current_pose_marker.scale.x = 2*Ra; 
+        // current_pose_marker.scale.y = 2*Ra; 
+        // current_pose_marker.scale.z = 2*Ra; 
+        // current_pose_marker.color.r = 0.6f;
+        // current_pose_marker.color.g = 0.6f;
+        // current_pose_marker.color.b = 0.6f;
+        // current_pose_marker.color.a = 0.50;
+        // current_pose_marker.lifetime = ros::Duration();
+        // all_markers.markers.push_back(current_pose_marker);
 
-        // marker.pose.position.x = 5.0; 
-        // marker.pose.position.y = 5.0; 
-        // marker.pose.position.z = 5.0;  
-        // marker.pose.orientation.x = 0.0;
-        // marker.pose.orientation.y = 0.0;
-        // marker.pose.orientation.z = 0.0;
-        // marker.pose.orientation.w = 1.0;
 
-        marker.pose = obj_pose[i];
-        marker.scale.x = 2*marker_radius; 
-        marker.scale.y = 2*marker_radius; 
-        marker.scale.z = 2*marker_radius; 
-        marker.color.r = 1.0f;
-        marker.color.g = 0.0f;
-        marker.color.b = 0.0f;
-        marker.color.a = 0.25;
-        marker.lifetime = ros::Duration();
-        markers.markers.push_back(marker);
 
-        // for cylinders
+        // small sphere at applied ref pose
+        // sphere_applied_ref.header.frame_id = "/common_origin";
+        // sphere_applied_ref.header.stamp = ros::Time::now();
+        // sphere_applied_ref.ns = "error_sphere";
+        // sphere_applied_ref.id = i;
+        // sphere_applied_ref.type = visualization_msgs::Marker::SPHERE; 
+        // sphere_applied_ref.action = visualization_msgs::Marker::ADD;
+        // sphere_applied_ref.pose.position.x = ref[0][i];
+        // sphere_applied_ref.pose.position.y = ref[1][i];
+        // sphere_applied_ref.pose.position.z = ref[2][i];
+        // sphere_applied_ref.pose.orientation.x = 0;
+        // sphere_applied_ref.pose.orientation.y = 0;
+        // sphere_applied_ref.pose.orientation.z = 0;
+        // sphere_applied_ref.pose.orientation.w = 0.0;
+        // sphere_applied_ref.scale.x = 2*Ra; 
+        // sphere_applied_ref.scale.y = 2*Ra; 
+        // sphere_applied_ref.scale.z = 2*Ra; 
+        // sphere_applied_ref.color.r = 0.6f;
+        // sphere_applied_ref.color.g = 0.6f;
+        // sphere_applied_ref.color.b = 0.6f;
+        // sphere_applied_ref.color.a = 0.50;
+        // sphere_applied_ref.lifetime = ros::Duration();
+        // all_markers.markers.push_back(sphere_applied_ref);
+
+        // cylinder between current pose and applied ref
         Point p1, p2;
         p1.x = obj_pose[i].position.x;
         p1.y = obj_pose[i].position.y;
@@ -273,7 +291,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
         p2.x = ref[0][i];
         p2.y = ref[1][i];
         p2.z = ref[2][i];
-
         cylinder.header.frame_id = "/common_origin";
         cylinder.id = i;
         cylinder.header.stamp = ros::Time::now();
@@ -282,18 +299,80 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
         cylinder.action = visualization_msgs::Marker::ADD;
         CylinderOrientation(p1, p2, cylinder_pose, cylinder_height);
         cylinder.pose = cylinder_pose;
-
         cylinder.scale.x = 0.50;            // x radius
         cylinder.scale.y = 0.50;            // y radius
         cylinder.scale.z = cylinder_height; // height
-        cylinder.color.r = 0.0f;
-        cylinder.color.g = 1.0f;
-        cylinder.color.b = 1.0f;
-        cylinder.color.a = 0.50;
+        cylinder.color.r = 0.537f;
+        cylinder.color.g = 0.769f;
+        cylinder.color.b = 0.956f;
+        cylinder.color.a = 0.60;
+        all_markers.markers.push_back(cylinder);
 
-        markers.markers.push_back(cylinder);
+        // sphere1 at cylinder ends
+        cylinder_sphere1.header.frame_id = "/common_origin";
+        cylinder_sphere1.header.stamp = ros::Time::now();
+        cylinder_sphere1.ns = "cylinder_sphere1";
+        cylinder_sphere1.id = i;
+        cylinder_sphere1.type = visualization_msgs::Marker::SPHERE; 
+        cylinder_sphere1.action = visualization_msgs::Marker::ADD;
+        cylinder_sphere1.pose = obj_pose[i];
+        cylinder_sphere1.scale.x = 0.50; 
+        cylinder_sphere1.scale.y = 0.50; 
+        cylinder_sphere1.scale.z = 0.50; 
+        cylinder_sphere1.color.r = 0.537f;
+        cylinder_sphere1.color.g = 0.769f;
+        cylinder_sphere1.color.b = 0.956f;
+        cylinder_sphere1.color.a = 0.60;
+        cylinder_sphere1.lifetime = ros::Duration();
+        all_markers.markers.push_back(cylinder_sphere1);
+
+        // sphere2 at cylinder ends
+        cylinder_sphere2.header.frame_id = "/common_origin";
+        cylinder_sphere2.header.stamp = ros::Time::now();
+        cylinder_sphere2.ns = "cylinder_sphere2";
+        cylinder_sphere2.id = i;
+        cylinder_sphere2.type = visualization_msgs::Marker::SPHERE; 
+        cylinder_sphere2.action = visualization_msgs::Marker::ADD;
+        cylinder_sphere2.pose.position.x = ref[0][i];
+        cylinder_sphere2.pose.position.y = ref[1][i];
+        cylinder_sphere2.pose.position.z = ref[2][i];
+        cylinder_sphere2.pose.orientation.x = 0;
+        cylinder_sphere2.pose.orientation.y = 0;
+        cylinder_sphere2.pose.orientation.z = 0;
+        cylinder_sphere2.pose.orientation.w = 0.0;        
+        cylinder_sphere2.scale.x = 0.50; 
+        cylinder_sphere2.scale.y = 0.50; 
+        cylinder_sphere2.scale.z = 0.50; 
+        cylinder_sphere2.color.r = 0.537f;
+        cylinder_sphere2.color.g = 0.769f;
+        cylinder_sphere2.color.b = 0.956f;
+        cylinder_sphere2.color.a = 0.60;
+        cylinder_sphere2.lifetime = ros::Duration();
+        all_markers.markers.push_back(cylinder_sphere2);
+
+        // ends points of the line
+        p.x = ref[0][i];
+        p.y = ref[1][i];
+        p.z = ref[2][i];
+        line.points.push_back(p);
     }
-    marker_pub.publish(markers);
+
+    // line betweetn both current uav pose
+    line.header.frame_id = "/common_origin";
+    line.id = 2;
+    line.header.stamp = ros::Time::now();
+    line.ns = "line";
+    line.type = visualization_msgs::Marker::LINE_STRIP; 
+    line.action = visualization_msgs::Marker::ADD;
+    line.pose.orientation.w = 0.0;
+    line.scale.x = 0.05; // width
+    line.color.r = 0.0f;
+    line.color.g = 0.0f;
+    line.color.b = 0.0f;
+    line.color.a = 1.0;
+    all_markers.markers.push_back(line);
+
+    marker_pub.publish(all_markers);
 }
 
 int main(int argc, char **argv){
@@ -302,9 +381,14 @@ int main(int argc, char **argv){
     // ^^^^^^^^^^^^^^
 
     // init node
-    ros::init(argc, argv,"marker");
+    ros::init(argc, argv,"current_pose_marker");
     ros::NodeHandle n;
+    //ros::NodeHandle n2(parent_nh, "dergbryan_tracker");
     ros::Rate r(30);
+
+    // mrs_lib::ParamLoader param_loader(n2, "DergbryanTracker");
+    // param_loader.loadParam("strategy_id", _DERG_strategy_id_);
+    // ROS_INFO_STREAM("DERG_strategy_id " << _DERG_strategy_id_);
 
     // Subscribers and publishers //
     // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -337,13 +421,16 @@ int main(int argc, char **argv){
         uav_applied_ref_sub[i] = n.subscribe("/" + diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/uav_applied_ref", 10, f2[i]);
     }
 
-    // create one publisher for all the markers
+    // create one publisher for all the all the markers
     marker_pub = n.advertise<visualization_msgs::MarkerArray>("visualization_marker", 10);
 
     // Display
     // ^^^^^^^
     while(ros::ok){
         PublishMarkers(uav_current_poses, uav_applied_ref);
+        // if(_DERG_strategy_id_== 4){
+        //     PublishMarkers(uav_current_poses, uav_applied_ref);
+        // }                    
         ros::spinOnce();
         r.sleep();
     }
