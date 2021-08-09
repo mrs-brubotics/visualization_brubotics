@@ -5,8 +5,9 @@
 #include <mrs_msgs/FuturePoint.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/Vector3.h>
+#include <std_msgs/Int32.h>
 #include <Eigen/Dense>
-#include <mrs_lib/param_loader.h>
 
 #include <ros/ros.h>
 
@@ -16,7 +17,6 @@
 #define MAX_UAV_NUMBER 10
 
 
-int _DERG_strategy_id_ = 2;
 double Ra = 0.35;
 double Sa_ = 1.5;
 double marker_radius = 1.5;
@@ -28,18 +28,22 @@ std::array<std::array<double, 2>, 3> uav_applied_ref;
 // Publishers and subscribers
 ros::Publisher marker_pub;
 ros::Subscriber diagnostics_sub;
+ros::Subscriber DERG_strategy_id_sub;
 std::vector<ros::Subscriber> uav_current_pose_sub(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> uav_applied_ref_sub(MAX_UAV_NUMBER);
+std::vector<ros::Subscriber> point_link_star_sub(MAX_UAV_NUMBER);
+
 
 // Messages
 mrs_msgs::SpawnerDiagnostics diagnostics;
-geometry_msgs::PoseArray uav_current_pose;
-std::vector<geometry_msgs::Pose> uav_current_poses(MAX_UAV_NUMBER);
 mrs_msgs::FutureTrajectory uav_applied_ref_traj;
 mrs_msgs::FuturePoint uav_applied_ref_point;
+geometry_msgs::PoseArray uav_current_pose;
 geometry_msgs::Pose cylinder_pose;
-
-
+geometry_msgs::Pose point_link_star;
+std_msgs::Int32 _DERG_strategy_id_;
+std::vector<geometry_msgs::Pose> uav_current_poses(MAX_UAV_NUMBER);
+std::vector<geometry_msgs::Pose> point_link_stars(MAX_UAV_NUMBER);
 class Point
 {
 
@@ -65,10 +69,12 @@ class Point
 void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& diagnostics);
 void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number);
 void AppliedRefCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg);
+void PointLinkStarCallback(const geometry_msgs::Pose::ConstPtr& msg, int uav_number);
+void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg);
 double getDistance(const Point& p1, const Point& p2);
 Point getMiddle(const Point& pt1, const Point& pt2);
 void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& cylinder_pose, double& cylinder_height);
-void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref);
+void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref, const std::vector<geometry_msgs::Pose>& pstar);
 
 
 // Hemispheres
@@ -163,6 +169,18 @@ void AppliedRefCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav
     //ROS_INFO_STREAM("UAV " << uav_number << ": x = " << uav_applied_ref[uav_number-1][0] << ", y = " << uav_applied_ref[uav_number-1][1] << ", z = " << uav_applied_ref[uav_number-1][2]);
 }
 
+void PointLinkStarCallback(const geometry_msgs::Pose::ConstPtr& msg, int uav_number){
+    point_link_star.position = msg -> position;
+    point_link_stars[uav_number-1].position = point_link_star.position;
+    ROS_INFO_STREAM("UAV" << uav_number << ": " << point_link_stars[uav_number-1].position);
+}
+
+void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg){
+    _DERG_strategy_id_.data = msg -> data;
+    //ROS_INFO_STREAM("DERG_strategy_id: " << _DERG_strategy_id_.data);
+}
+
+
 double getDistance(const Point& p1, const Point& p2){
     double res;
     res = sqrt((p1.x-p2.x)*(p1.x-p2.x)+(p1.y-p2.y)*(p1.y-p2.y)+(p1.z-p2.z)*(p1.z-p2.z));
@@ -199,7 +217,7 @@ void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& c
     cylinder_pose.orientation.w = cos(angle/2);
 }
 
-void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref){
+void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref, const std::vector<geometry_msgs::Pose>& pstar){
     visualization_msgs::Marker error_sphere;
     visualization_msgs::Marker current_pose_marker;
     visualization_msgs::Marker sphere_applied_ref;
@@ -285,9 +303,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
 
         // cylinder between current pose and applied ref
         Point p1, p2;
-        p1.x = obj_pose[i].position.x;
-        p1.y = obj_pose[i].position.y;
-        p1.z = obj_pose[i].position.z;
+        p1.x = pstar[i].position.x;
+        p1.y = pstar[i].position.y;
+        p1.z = pstar[i].position.z;
         p2.x = ref[0][i];
         p2.y = ref[1][i];
         p2.z = ref[2][i];
@@ -383,18 +401,14 @@ int main(int argc, char **argv){
     // init node
     ros::init(argc, argv,"current_pose_marker");
     ros::NodeHandle n;
-    //ros::NodeHandle n2(parent_nh, "dergbryan_tracker");
     ros::Rate r(30);
-
-    // mrs_lib::ParamLoader param_loader(n2, "DergbryanTracker");
-    // param_loader.loadParam("strategy_id", _DERG_strategy_id_);
-    // ROS_INFO_STREAM("DERG_strategy_id " << _DERG_strategy_id_);
 
     // Subscribers and publishers //
     // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     // create subscriber for active UAV list
-    diagnostics_sub = n.subscribe("mrs_drone_spawner/diagnostics", 10, DiagnosticsCallback);
+    diagnostics_sub = n.subscribe("mrs_drone_spawner/diagnostics", 1, DiagnosticsCallback);
+    DERG_strategy_id_sub = n.subscribe("uav1/control_manager/dergbryan_tracker/derg_strategy_id", 1, DERGStrategyIdCallback);
 
     //Sphere_algo(0, 0, 0, 10);
 
@@ -408,17 +422,21 @@ int main(int argc, char **argv){
     f1.resize(MAX_UAV_NUMBER);
     std::vector<boost::function<void (const mrs_msgs::FutureTrajectory::ConstPtr&)>> f2;
     f2.resize(MAX_UAV_NUMBER);
+    std::vector<boost::function<void (const geometry_msgs::Pose::ConstPtr&)>> f3;
+    f3.resize(MAX_UAV_NUMBER);
 
     for(int i=0; i<diagnostics.active_vehicles.size(); i++){
         // create subscriber for current uav pose
         f1[i] = boost::bind(CurrentPoseCallback, _1, i+1);
-        uav_current_pose_sub[i] = n.subscribe("/" + diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/custom_predicted_poses", 10, f1[i]);
-    }
+        uav_current_pose_sub[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/custom_predicted_poses", 10, f1[i]);
 
-    for(int i=0; i<diagnostics.active_vehicles.size(); i++){
         // create subscriber for uav applied ref
         f2[i] = boost::bind(AppliedRefCallback, _1, i+1);
-        uav_applied_ref_sub[i] = n.subscribe("/" + diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/uav_applied_ref", 10, f2[i]);
+        uav_applied_ref_sub[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/uav_applied_ref", 10, f2[i]);
+        //ROS_INFO_STREAM("yes2");
+        // create subscriber for uav point link star
+        f3[i] = boost::bind(PointLinkStarCallback, _1, i+1);
+        point_link_star_sub[i] = n.subscribe(diagnostics.active_vehicles[i] +"/control_manager/dergbryan_tracker/point_link_star", 10, f3[i]);
     }
 
     // create one publisher for all the all the markers
@@ -427,10 +445,12 @@ int main(int argc, char **argv){
     // Display
     // ^^^^^^^
     while(ros::ok){
-        PublishMarkers(uav_current_poses, uav_applied_ref);
-        // if(_DERG_strategy_id_== 4){
-        //     PublishMarkers(uav_current_poses, uav_applied_ref);
-        // }                    
+        if(_DERG_strategy_id_.data == 0){
+            PublishMarkers(uav_current_poses, uav_applied_ref, point_link_stars);
+        }
+        else if(_DERG_strategy_id_.data == 1){
+            PublishMarkers(uav_current_poses, uav_applied_ref, point_link_stars);
+        }                    
         ros::spinOnce();
         r.sleep();
     }
