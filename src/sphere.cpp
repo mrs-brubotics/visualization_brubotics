@@ -293,17 +293,53 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
             all_markers.markers.push_back(cylinder1);
 
             // Blue tube
+            // sphere12 at cylinder ends
+            cylinder_sphere12.header.frame_id = "/common_origin";
+            cylinder_sphere12.header.stamp = ros::Time::now();
+            cylinder_sphere12.ns = "cylinder_sphere12";
+            cylinder_sphere12.id = i;
+            cylinder_sphere12.type = visualization_msgs::Marker::MESH_RESOURCE; 
+            cylinder_sphere12.mesh_resource = "package://visualization_brubotics/meshes/hemisphere1.stl";
+            cylinder_sphere12.action = visualization_msgs::Marker::ADD;
+            cylinder_sphere12.pose.position.x = ref[0][i];
+            cylinder_sphere12.pose.position.y = ref[1][i];
+            cylinder_sphere12.pose.position.z = ref[2][i];
+            cylinder_sphere12.pose.orientation.x = cylinder_pose.orientation.x;
+            cylinder_sphere12.pose.orientation.y = cylinder_pose.orientation.y;
+            cylinder_sphere12.pose.orientation.z = cylinder_pose.orientation.z;
+            cylinder_sphere12.pose.orientation.w = cylinder_pose.orientation.w; 
+            ROS_INFO_STREAM("sphere 1 " << cylinder_pose.orientation);      
+            cylinder_sphere12.scale.x = 0.001 * _Sa_perp_max_.data; 
+            cylinder_sphere12.scale.y = 0.001 * _Sa_perp_max_.data; 
+            cylinder_sphere12.scale.z = 0.001 * _Sa_perp_max_.data; 
+            cylinder_sphere12.color.r = 0.4f;
+            cylinder_sphere12.color.g = 0.698f;
+            cylinder_sphere12.color.b = 1.0f;
+            cylinder_sphere12.color.a = 0.5;
+            cylinder_sphere12.lifetime = ros::Duration();
+            all_markers.markers.push_back(cylinder_sphere12);
+
+            // Blue tube
             // sphere11 at cylinder ends
             cylinder_sphere11.header.frame_id = "/common_origin";
             cylinder_sphere11.header.stamp = ros::Time::now();
             cylinder_sphere11.ns = "cylinder_sphere11";
             cylinder_sphere11.id = i;
-            cylinder_sphere11.type = visualization_msgs::Marker::SPHERE; 
+            cylinder_sphere11.type = visualization_msgs::Marker::MESH_RESOURCE;
+            cylinder_sphere11.mesh_resource = "package://visualization_brubotics/meshes/hemisphere1.stl";
             cylinder_sphere11.action = visualization_msgs::Marker::ADD;
-            cylinder_sphere11.pose = pstar[i];
-            cylinder_sphere11.scale.x = 2*_Sa_perp_max_.data; 
-            cylinder_sphere11.scale.y = 2*_Sa_perp_max_.data; 
-            cylinder_sphere11.scale.z = 2*_Sa_perp_max_.data; 
+            cylinder_sphere11.pose.position.x = pstar[i].position.x;
+            cylinder_sphere11.pose.position.y = pstar[i].position.y;
+            cylinder_sphere11.pose.position.z = pstar[i].position.z;
+            CylinderOrientation(p2, p1, cylinder_pose, cylinder_height);
+            cylinder_sphere11.pose.orientation.x = cylinder_pose.orientation.x;
+            cylinder_sphere11.pose.orientation.y = cylinder_pose.orientation.y;
+            cylinder_sphere11.pose.orientation.z = cylinder_pose.orientation.z;
+            cylinder_sphere11.pose.orientation.w = cylinder_pose.orientation.w;
+            ROS_INFO_STREAM("sphere 2 " << cylinder_pose.orientation);
+            cylinder_sphere11.scale.x = 0.001 *_Sa_perp_max_.data; 
+            cylinder_sphere11.scale.y = 0.001 *_Sa_perp_max_.data; 
+            cylinder_sphere11.scale.z = 0.001 *_Sa_perp_max_.data; 
             cylinder_sphere11.color.r = 0.4f;
             cylinder_sphere11.color.g = 0.698f;
             cylinder_sphere11.color.b = 1.0f;
@@ -311,30 +347,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
             cylinder_sphere11.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_sphere11);
 
-            // Blue tube
-            // sphere12 at cylinder ends
-            cylinder_sphere12.header.frame_id = "/common_origin";
-            cylinder_sphere12.header.stamp = ros::Time::now();
-            cylinder_sphere12.ns = "cylinder_sphere12";
-            cylinder_sphere12.id = i;
-            cylinder_sphere12.type = visualization_msgs::Marker::SPHERE; 
-            cylinder_sphere12.action = visualization_msgs::Marker::ADD;
-            cylinder_sphere12.pose.position.x = ref[0][i];
-            cylinder_sphere12.pose.position.y = ref[1][i];
-            cylinder_sphere12.pose.position.z = ref[2][i];
-            cylinder_sphere12.pose.orientation.x = 0;
-            cylinder_sphere12.pose.orientation.y = 0;
-            cylinder_sphere12.pose.orientation.z = 0;
-            cylinder_sphere12.pose.orientation.w = 0.0;        
-            cylinder_sphere12.scale.x = 2*_Sa_perp_max_.data; 
-            cylinder_sphere12.scale.y = 2*_Sa_perp_max_.data; 
-            cylinder_sphere12.scale.z = 2*_Sa_perp_max_.data; 
-            cylinder_sphere12.color.r = 0.4f;
-            cylinder_sphere12.color.g = 0.698f;
-            cylinder_sphere12.color.b = 1.0f;
-            cylinder_sphere12.color.a = 0.5;
-            cylinder_sphere12.lifetime = ros::Duration();
-            all_markers.markers.push_back(cylinder_sphere12);
+            
         }
 
         if(_DERG_strategy_id_.data == 2){
