@@ -16,7 +16,7 @@
 #include <string>
 
 #define MAX_UAV_NUMBER 10
-
+#define MAX_POINTS_TRAJECTORY 50
 
 double Ra = 0.35;
 double Sa = 1.5;
@@ -26,7 +26,7 @@ bool test1 = false;
 bool test2 = false;
 std::array<std::array<double, 2>, 3> uav_applied_ref;
 std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories;
-double test;
+int test;
 
 
 
@@ -38,10 +38,10 @@ ros::Subscriber DERG_strategy_id_sub;
 ros::Subscriber Sa_max_sub;
 ros::Subscriber Sa_perp_max_sub;
 ros::Subscriber tube_min_radius_sub;
-ros::Subscriber predicted_trajectory_sub;
 std::vector<ros::Subscriber> uav_current_pose_sub(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> uav_applied_ref_sub(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> point_link_star_sub(MAX_UAV_NUMBER);
+std::vector<ros::Subscriber> predicted_trajectory_sub(MAX_UAV_NUMBER);
 
 
 // Messages
@@ -82,7 +82,7 @@ class Point
 
 void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& diagnostics);
 void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number);
-void AppliedRefCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg);
+void AppliedRefCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
 void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
 void PointLinkStarCallback(const geometry_msgs::Pose::ConstPtr& msg, int uav_number);
 void SaMaxCallback(const std_msgs::Int32::ConstPtr& msg);
@@ -125,7 +125,11 @@ void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg
         predicted_trajectories[i][0][uav_number-1] = predicted_traj.points[i].x;
         predicted_trajectories[i][1][uav_number-1] = predicted_traj.points[i].y;
         predicted_trajectories[i][2][uav_number-1] = predicted_traj.points[i].z;
-        ROS_INFO_STREAM("x : " << predicted_trajectories[i][0][uav_number-1]);
+        //ROS_INFO_STREAM("x : " << predicted_trajectories[i][0][uav_number-1]);
+    }
+    
+    if(test2){
+        return;
     }
     test2 = true;
 }
@@ -148,7 +152,7 @@ void SaPerpMaxCallback(const std_msgs::Int32::ConstPtr& msg){
 
 void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg){
     tube_min_radius.data = msg -> data;
-    ROS_INFO_STREAM("tube_min_radius = " << tube_min_radius.data);
+    //ROS_INFO_STREAM("tube_min_radius = " << tube_min_radius.data);
 }
 
 void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg){
@@ -193,9 +197,7 @@ void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& c
     cylinder_pose.orientation.w = cos(angle/2);
 }
 
-void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref, 
-                    const std::vector<geometry_msgs::Pose>& pstar, 
-                    std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories){
+void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref, const std::vector<geometry_msgs::Pose>& pstar, std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories){
     
     visualization_msgs::Marker current_pose_sphere;
     visualization_msgs::Marker error_sphere;
@@ -320,12 +322,27 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
         //     all_markers.markers.push_back(trajectory_sphere);
         // }
         trajectory_sphere.points.clear();
-        for(int j=0; j<predicted_traj.points.size(); j++){
+
+        p_traj.x = predicted_trajectories[0][0][i];
+        p_traj.y = predicted_trajectories[0][1][i];
+        p_traj.z = predicted_trajectories[0][2][i];
+        trajectory_sphere.points.push_back(p_traj);
+
+        
+
+        test = predicted_traj.points.size() / MAX_POINTS_TRAJECTORY;
+        for(int j=1; j<(predicted_traj.points.size() - 2*test); j+=test){
             p_traj.x = predicted_trajectories[j][0][i];
             p_traj.y = predicted_trajectories[j][1][i];
             p_traj.z = predicted_trajectories[j][2][i];
             trajectory_sphere.points.push_back(p_traj);
         }
+
+        p_traj.x = predicted_trajectories[predicted_traj.points.size()-1][0][i];
+        p_traj.y = predicted_trajectories[predicted_traj.points.size()-1][1][i];
+        p_traj.z = predicted_trajectories[predicted_traj.points.size()-1][2][i];
+        trajectory_sphere.points.push_back(p_traj);
+
         trajectory_sphere.header.frame_id = "/common_origin";
         trajectory_sphere.id = i;
         trajectory_sphere.header.stamp = ros::Time::now();
@@ -339,7 +356,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
         trajectory_sphere.color.b = 0.0f;
         trajectory_sphere.color.a = 1.0;
         all_markers.markers.push_back(trajectory_sphere);
-
+        ROS_INFO_STREAM("number of point : " << trajectory_sphere.points.size() << "test :" << test << "size : " << predicted_traj.points.size());
         if(_DERG_strategy_id_.data == 1){
 
             // Blue tube
@@ -840,18 +857,16 @@ int main(int argc, char **argv){
         // create subscribers for current uav pose
         f1[i] = boost::bind(CurrentPoseCallback, _1, i+1);
         uav_current_pose_sub[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/custom_predicted_poses", 10, f1[i]);
-
         // create subscribers for uav applied ref
         f2[i] = boost::bind(AppliedRefCallback, _1, i+1);
         uav_applied_ref_sub[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/uav_applied_ref", 10, f2[i]);
-
         // create subscribers for uav point link star
         f3[i] = boost::bind(PointLinkStarCallback, _1, i+1);
         point_link_star_sub[i] = n.subscribe(diagnostics.active_vehicles[i] +"/control_manager/dergbryan_tracker/point_link_star", 10, f3[i]);
 
         // create subscribers for uav predicted trajectory
         f4[i] = boost::bind(PredictedTrajectoryCallback, _1, i+1);
-        uav_applied_ref_sub[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/predicted_trajectory", 10, f4[i]);
+        predicted_trajectory_sub[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/predicted_trajectory", 10, f4[i]);
 
     }   
 
@@ -862,10 +877,8 @@ int main(int argc, char **argv){
 
     // create one publisher for all the all the markers
     marker_pub = n.advertise<visualization_msgs::MarkerArray>("visualization_marker", 10);
-    //trajectory_pub = n.advertise<visualization_msgs::MarkerArray>("visualization_marker2", 10);
 
     // Display
-    // ^^^^^^^
 
     while(ros::ok){
         PublishMarkers(uav_current_poses, uav_applied_ref, point_link_stars, predicted_trajectories);                   
