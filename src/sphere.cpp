@@ -18,21 +18,17 @@
 #define MAX_UAV_NUMBER 10
 #define MAX_POINTS_TRAJECTORY 50
 
+
 double Ra = 0.35;
-double Sa = 1.5;
-double Sa_perp = 0.2;
-double Sa_long = Sa-Sa_perp;
+int test;
 bool test1 = false;
 bool test2 = false;
 std::array<std::array<double, 2>, 3> uav_applied_ref;
 std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories;
-int test;
-
 
 
 // Publishers and subscribers
 ros::Publisher marker_pub;
-//ros::Publisher trajectory_pub;
 ros::Subscriber diagnostics_sub;
 ros::Subscriber DERG_strategy_id_sub;
 ros::Subscriber Sa_max_sub;
@@ -58,8 +54,6 @@ std_msgs::Int32 _Sa_perp_max_;
 std_msgs::Float32 tube_min_radius;
 std::vector<geometry_msgs::Pose> uav_current_poses(MAX_UAV_NUMBER);
 std::vector<geometry_msgs::Pose> point_link_stars(MAX_UAV_NUMBER);
-//std::vector<mrs_msgs::FutureTrajectory> predicted_trajectories(MAX_UAV_NUMBER);
-
 
 
 class Point
@@ -98,8 +92,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
 
 
 void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& msg){
-    if (test1)
+    if (test1){
         return;
+    }
     diagnostics.active_vehicles = msg -> active_vehicles;
     //ROS_INFO_STREAM("UAV list: " << diagnostics.active_vehicles[0] << ", " << diagnostics.active_vehicles[1]);
     test1 = true;
@@ -195,6 +190,7 @@ void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& c
     cylinder_pose.orientation.y = axis.y() * sin(angle/2);
     cylinder_pose.orientation.z = axis.z() * sin(angle/2);
     cylinder_pose.orientation.w = cos(angle/2);
+
 }
 
 void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref, const std::vector<geometry_msgs::Pose>& pstar, std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories){
@@ -296,31 +292,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
         line.points.push_back(p);
 
         // Predicted trajectory
-        // ROS_INFO_STREAM("yes1 ");
-        // for(int j=0; j<predicted_traj.points.size(); j++){
-        //     ROS_INFO_STREAM("yes2 ");
-        //     trajectory_sphere.header.frame_id = "/common_origin";
-        //     trajectory_sphere.header.stamp = ros::Time();
-        //     trajectory_sphere.ns = "trajectory_sphere";
-        //     trajectory_sphere.id = j + 300*i;
-        //     trajectory_sphere.type = visualization_msgs::Marker::SPHERE;
-        //     trajectory_sphere.action = visualization_msgs::Marker::ADD;
-        //     trajectory_sphere.pose.position.x = predicted_trajectories[j][0][i];
-        //     trajectory_sphere.pose.position.y = predicted_trajectories[j][1][i];
-        //     trajectory_sphere.pose.position.z = predicted_trajectories[j][2][i];
-        //     trajectory_sphere.pose.orientation.x = 0;
-        //     trajectory_sphere.pose.orientation.y = 0;
-        //     trajectory_sphere.pose.orientation.z = 0;
-        //     trajectory_sphere.pose.orientation.w = 0;
-        //     trajectory_sphere.scale.x = 0.05;
-        //     trajectory_sphere.scale.y = 0.05;
-        //     trajectory_sphere.scale.z = 0.05;
-        //     trajectory_sphere.color.r = 1.0;
-        //     trajectory_sphere.color.g = 0.0;
-        //     trajectory_sphere.color.b = 0.0;
-        //     trajectory_sphere.color.a = 1.0;
-        //     all_markers.markers.push_back(trajectory_sphere);
-        // }
         trajectory_sphere.points.clear();
 
         p_traj.x = predicted_trajectories[0][0][i];
@@ -328,9 +299,8 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
         p_traj.z = predicted_trajectories[0][2][i];
         trajectory_sphere.points.push_back(p_traj);
 
-        
-
         test = predicted_traj.points.size() / MAX_POINTS_TRAJECTORY;
+
         for(int j=1; j<(predicted_traj.points.size() - 2*test); j+=test){
             p_traj.x = predicted_trajectories[j][0][i];
             p_traj.y = predicted_trajectories[j][1][i];
@@ -356,7 +326,8 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
         trajectory_sphere.color.b = 0.0f;
         trajectory_sphere.color.a = 1.0;
         all_markers.markers.push_back(trajectory_sphere);
-        ROS_INFO_STREAM("number of point : " << trajectory_sphere.points.size() << "test :" << test << "size : " << predicted_traj.points.size());
+        ROS_INFO_STREAM("number of points: " << trajectory_sphere.points.size() << ", test: " << test << ", size: " << predicted_traj.points.size());
+
         if(_DERG_strategy_id_.data == 1){
 
             // Blue tube
@@ -432,7 +403,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
             cylinder_sphere11.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_sphere11);
 
-            
         }
 
         if(_DERG_strategy_id_.data == 2){
@@ -796,6 +766,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
             all_markers.markers.push_back(cylinder_sphere31);
 
         }
+
     }
 
     // red line betweetn both current uav pose
@@ -816,6 +787,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
     //trajectory_pub.publish(trajectory_array);
     // all_markers.markers.push_back(trajectory_array);
     marker_pub.publish(all_markers);
+
 }
 
 int main(int argc, char **argv){
@@ -828,8 +800,8 @@ int main(int argc, char **argv){
     ros::NodeHandle n;
     ros::Rate r(30);
 
-    // Subscribers and publishers //
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    // Subscribers and publishers
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     // create subscriber for active UAV list
     diagnostics_sub = n.subscribe("mrs_drone_spawner/diagnostics", 1, DiagnosticsCallback);
@@ -841,6 +813,7 @@ int main(int argc, char **argv){
     while(!test1){
         ros::spinOnce();
         r.sleep();
+
     }
     
     // create subscribers
@@ -873,18 +846,22 @@ int main(int argc, char **argv){
     while(!test2){
         ros::spinOnce();
         r.sleep();
+
     }
 
     // create one publisher for all the all the markers
     marker_pub = n.advertise<visualization_msgs::MarkerArray>("visualization_marker", 10);
 
     // Display
+    // ^^^^^^^
 
     while(ros::ok){
         PublishMarkers(uav_current_poses, uav_applied_ref, point_link_stars, predicted_trajectories);                   
         ros::spinOnce();
         r.sleep();
+
     }
 
     return 0;
+
 }
