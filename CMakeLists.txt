@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
     eigen_conversions
     mrs_lib
     std_msgs
+    trackers_brubotics
 )
 
 ## System dependencies are found with CMake's conventions
@@ -56,6 +57,7 @@ find_package(Eigen3 REQUIRED)
 #   Message1.msg
 #   Message2.msg
 # )
+
 
 ## Generate services in the 'srv' folder
 # add_service_files(
