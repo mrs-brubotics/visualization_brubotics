@@ -264,7 +264,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         error_sphere.color.r = 0.8f;
         error_sphere.color.g = 0.898f;
         error_sphere.color.b = 1.0f;
-        error_sphere.color.a = 0.33;
+        error_sphere.color.a = 0.2;
         error_sphere.lifetime = ros::Duration();
         all_markers.markers.push_back(error_sphere);
 
@@ -958,7 +958,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder3.color.r = 0.749f;
             cylinder3.color.g = 0.647f;
             cylinder3.color.b = 0.412f;
-            cylinder3.color.a = 0.2;
+            cylinder3.color.a = 0.5;
             all_markers.markers.push_back(cylinder3);
 
             // Orange tube
@@ -978,7 +978,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere32.color.r = 0.8f;
             cylinder_hemisphere32.color.g = 0.0f;
             cylinder_hemisphere32.color.b = 0.0f;
-            cylinder_hemisphere32.color.a = 0.2;
+            cylinder_hemisphere32.color.a = 0.5;
             cylinder_hemisphere32.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere32);
 
@@ -992,7 +992,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere31.mesh_resource = "package://visualization_brubotics/meshes/hemisphere1.stl";
             cylinder_hemisphere31.action = visualization_msgs::Marker::ADD;
             cylinder_hemisphere31.pose.position = p1[i].position;
-            CylinderOrientation(p23, p24, cylinder_pose, cylinder_height);
+            CylinderOrientation(p24, p23, cylinder_pose, cylinder_height);
             cylinder_hemisphere31.pose.orientation = cylinder_pose.orientation;
             cylinder_hemisphere31.scale.x = 0.001*tube_min_radius.data; 
             cylinder_hemisphere31.scale.y = 0.001*tube_min_radius.data; 
@@ -1000,7 +1000,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere31.color.r = 0.8f;
             cylinder_hemisphere31.color.g = 0.0f;
             cylinder_hemisphere31.color.b = 0.0f;
-            cylinder_hemisphere31.color.a = 0.2;
+            cylinder_hemisphere31.color.a = 0.5;
             cylinder_hemisphere31.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere31);
 
