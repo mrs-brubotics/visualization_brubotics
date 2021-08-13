@@ -35,7 +35,7 @@ ros::Subscriber diagnostics_sub;
 ros::Subscriber DERG_strategy_id_sub;
 ros::Subscriber Sa_max_sub;
 ros::Subscriber Sa_perp_max_sub;
-//ros::Subscriber tube_min_radius_sub;
+ros::Subscriber i_min_dist_sub;
 std::vector<ros::Subscriber> uav_current_pose_sub(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> uav_applied_ref_sub(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> point_link_star_sub(MAX_UAV_NUMBER);
@@ -53,7 +53,7 @@ geometry_msgs::Pose point_link_star;
 std_msgs::Int32 _DERG_strategy_id_;
 std_msgs::Int32 _Sa_max_;
 std_msgs::Int32 _Sa_perp_max_;
-//std_msgs::Float32 tube_min_radius;
+std_msgs::Int32 i_min_dist;
 trackers_brubotics::FutureTrajectoryTube future_tube;
 std::vector<geometry_msgs::Pose> uav_current_poses(MAX_UAV_NUMBER);
 std::vector<geometry_msgs::Pose> point_link_stars(MAX_UAV_NUMBER);
@@ -88,6 +88,7 @@ void SaMaxCallback(const std_msgs::Int32::ConstPtr& msg);
 void SaPerpMaxCallback(const std_msgs::Int32::ConstPtr& msg);
 void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg);
 void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg);
+void IMinDistCallback(const std_msgs::Int32::ConstPtr& msg);
 double getDistance(const Point& p1, const Point& p2);
 Point getMiddle(const Point& pt1, const Point& pt2);
 void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& cylinder_pose, double& cylinder_height);
@@ -148,7 +149,7 @@ void FutureTubeCallback(const trackers_brubotics::FutureTrajectoryTube::ConstPtr
     future_tubes[uav_number-1].min_radius = future_tube.min_radius;
     future_tubes[uav_number-1].p0 = future_tube.p0;
     future_tubes[uav_number-1].p1 = future_tube.p1;
-    ROS_INFO_STREAM("UAV" << uav_number << ": " << future_tubes[uav_number-1]);
+    //ROS_INFO_STREAM("UAV" << uav_number << ": " << future_tubes[uav_number-1]);
 }
 
 void SaMaxCallback(const std_msgs::Int32::ConstPtr& msg){
@@ -168,7 +169,12 @@ void SaPerpMaxCallback(const std_msgs::Int32::ConstPtr& msg){
 
 void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg){
     _DERG_strategy_id_.data = msg -> data;
-    //ROS_INFO_STREAM("DERG_strategy_id: " << _DERG_strategy_id_.data);
+    //ROS_INFO_STREAM("DERG_strategy_id = " << _DERG_strategy_id_.data);
+}
+
+void IMinDistCallback(const std_msgs::Int32::ConstPtr& msg){
+    i_min_dist.data = msg -> data;
+    ROS_INFO_STREAM("i_min_dist = " << i_min_dist.data);
 }
 
 
@@ -227,12 +233,14 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
     visualization_msgs::Marker cylinder_hemisphere31;
     visualization_msgs::Marker cylinder_hemisphere32;
     visualization_msgs::Marker line;
+    visualization_msgs::Marker line_min_dist;
     visualization_msgs::Marker trajectory_sphere;
     visualization_msgs::MarkerArray trajectory_array;
     visualization_msgs::MarkerArray all_markers;
     geometry_msgs::Pose cylinder_pose;
     geometry_msgs::Point p;
     geometry_msgs::Point p_traj;
+    geometry_msgs::Point p_min_dist;
     double cylinder_height;
 
     // loop for each drone
@@ -269,7 +277,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         applied_ref_sphere.pose.orientation.x = 0;
         applied_ref_sphere.pose.orientation.y = 0;
         applied_ref_sphere.pose.orientation.z = 0;
-        applied_ref_sphere.pose.orientation.w = 0.0;
+        applied_ref_sphere.pose.orientation.w = 1.0;
         applied_ref_sphere.scale.x = 2*Ra; 
         applied_ref_sphere.scale.y = 2*Ra; 
         applied_ref_sphere.scale.z = 2*Ra; 
@@ -315,7 +323,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         trajectory_sphere.type = visualization_msgs::Marker::SPHERE_LIST;   // trajectory displaied as a succession of small spheres
         // trajectory_sphere.type = visualization_msgs::Marker::LINE_STRIP; // trajectory displaied as a line strip
         trajectory_sphere.action = visualization_msgs::Marker::ADD;
-        trajectory_sphere.pose.orientation.w = 0.0;
+        trajectory_sphere.pose.orientation.w = 1.0;
         trajectory_sphere.scale.x = 0.1; // width
         trajectory_sphere.scale.y = 0.1;
         trajectory_sphere.scale.z = 0.1;
@@ -342,7 +350,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             error_sphere.pose.orientation.x = 0;
             error_sphere.pose.orientation.y = 0;
             error_sphere.pose.orientation.z = 0;
-            error_sphere.pose.orientation.w = 0.0;
+            error_sphere.pose.orientation.w = 1.0;
             error_sphere.scale.x = 2*_Sa_max_.data; 
             error_sphere.scale.y = 2*_Sa_max_.data; 
             error_sphere.scale.z = 2*_Sa_max_.data; 
@@ -1041,7 +1049,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(cylinder3);
 
             // Orange tube
-            // sphere32 at cylinder ends
+            // hemisphere32 at cylinder ends
             cylinder_hemisphere32.header.frame_id = "/common_origin";
             cylinder_hemisphere32.header.stamp = ros::Time::now();
             cylinder_hemisphere32.ns = "cylinder_hemisphere32";
@@ -1064,14 +1072,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(cylinder_hemisphere32);
 
             // Orange tube
-            // sphere31 at cylinder ends
-            Point p23, p24;
-            p23.x = pstar[i].position.x;
-            p23.y = pstar[i].position.y;
-            p23.z = pstar[i].position.z;
-            p24.x = ref[0][i];
-            p24.y = ref[1][i];
-            p24.z = ref[2][i];
+            // hemisphere31 at cylinder ends
             cylinder_hemisphere31.header.frame_id = "/common_origin";
             cylinder_hemisphere31.header.stamp = ros::Time::now();
             cylinder_hemisphere31.ns = "cylinder_hemisphere31";
@@ -1080,7 +1081,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere31.mesh_resource = "package://visualization_brubotics/meshes/hemisphere1.stl";
             cylinder_hemisphere31.action = visualization_msgs::Marker::ADD;
             cylinder_hemisphere31.pose.position = obj_pose[i].position;
-            CylinderOrientation(p23, p24, cylinder_pose, cylinder_height);
+            CylinderOrientation(p26, p25, cylinder_pose, cylinder_height);
             cylinder_hemisphere31.pose.orientation = cylinder_pose.orientation;
             cylinder_hemisphere31.scale.x = 0.001*future_tubes[i].min_radius; 
             cylinder_hemisphere31.scale.y = 0.001*future_tubes[i].min_radius; 
@@ -1092,20 +1093,56 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere31.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere31);
 
-            
+            // // line for minimal distance
+            // // ends points of the line
+            // p_min_dist.x = predicted_trajectories[i_min_dist.data][0][i];
+            // p_min_dist.y = predicted_trajectories[i_min_dist.data][1][i];
+            // p_min_dist.z = predicted_trajectories[i_min_dist.data][2][i];
+            // line_min_dist.points.push_back(p_min_dist);
 
         }
 
     }
 
+    // if(_DERG_strategy_id_.data == 5){
+
+        // line for minimal distance
+
+        // ends points of the line
+        // for(int j=0; j<predicted_traj.points.size(); j++){
+        //     double norm = sqrt(  (predicted_trajectories[j][0][0] - predicted_trajectories[j][0][1])^2
+        //                        + (predicted_trajectories[j][1][0] - predicted_trajectories[j][1][1])^2
+        //                        + (predicted_trajectories[j][2][0] - predicted_trajectories[j][2][1])^2)
+        //                        -2*Ra;
+            
+        // }
+
+
+        // line_min_dist.header.frame_id = "/common_origin";
+        // line_min_dist.id = 0;
+        // line_min_dist.header.stamp = ros::Time::now();
+        // line_min_dist.ns = "minimal_distance";
+        // line_min_dist.type = visualization_msgs::Marker::LINE_STRIP; 
+        // line_min_dist.action = visualization_msgs::Marker::ADD;
+        // line_min_dist.pose.orientation.w = 0.0;
+        // line_min_dist.scale.x = 0.05; // width
+        // line_min_dist.color.r = 0.0f;
+        // line_min_dist.color.g = 0.0f;
+        // line_min_dist.color.b = 0.0f;
+        // line_min_dist.color.a = 1.0;
+        // all_markers.markers.push_back(line_min_dist);
+
+        // }
+
+
     // red line betweetn both current uav pose
     line.header.frame_id = "/common_origin";
-    line.id = 2;
+    line.id = 0;
     line.header.stamp = ros::Time::now();
     line.ns = "line";
     line.type = visualization_msgs::Marker::LINE_STRIP; 
     line.action = visualization_msgs::Marker::ADD;
-    line.pose.orientation.w = 0.0;
+    line.pose.orientation.w = 1.0;
     line.scale.x = 0.05; // width
     line.color.r = 1.0f;
     line.color.g = 0.0f;
@@ -1137,7 +1174,7 @@ int main(int argc, char **argv){
     DERG_strategy_id_sub = n.subscribe("uav1/control_manager/dergbryan_tracker/derg_strategy_id", 1, DERGStrategyIdCallback);
     Sa_max_sub = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_max", 1, SaMaxCallback);
     Sa_perp_max_sub = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_perp_max", 1, SaPerpMaxCallback);
-    //tube_min_radius_sub = n.subscribe("uav1/control_manager/dergbryan_tracker/tube_min_radius", 1, TubeMinRadiusCallback);
+    i_min_dist_sub = n.subscribe("uav1/control_manager/dergbryan_tracker/i_min_dist", 1, IMinDistCallback);
 
     while(!test1){
         ros::spinOnce();
@@ -1189,7 +1226,6 @@ int main(int argc, char **argv){
 
     // create one publisher for all the all the markers
     marker_pub = n.advertise<visualization_msgs::MarkerArray>("visualization_marker", 10);
-    //trajectory_pub = n.advertise<visualization_msgs::MarkerArray>("visualization_marker2", 10);
 
     // Display
     // ^^^^^^^
