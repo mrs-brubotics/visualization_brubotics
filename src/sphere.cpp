@@ -29,6 +29,7 @@ std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories;
 
 // Publishers and subscribers
 ros::Publisher marker_pub;
+ros::Publisher trajectory_pub;
 ros::Subscriber diagnostics_sub;
 ros::Subscriber DERG_strategy_id_sub;
 ros::Subscriber Sa_max_sub;
@@ -47,7 +48,6 @@ mrs_msgs::SpawnerDiagnostics diagnostics;
 mrs_msgs::FutureTrajectory uav_applied_ref_traj;
 mrs_msgs::FutureTrajectory predicted_traj;
 geometry_msgs::PoseArray uav_current_pose;
-geometry_msgs::PoseArray trajectory;
 geometry_msgs::Pose cylinder_pose;
 geometry_msgs::Pose point_link_star;
 geometry_msgs::Pose point_link_p0;
@@ -342,10 +342,13 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         trajectory_sphere.id = i;
         trajectory_sphere.header.stamp = ros::Time::now();
         trajectory_sphere.ns = "trajectory";
-        trajectory_sphere.type = visualization_msgs::Marker::LINE_STRIP; 
+        trajectory_sphere.type = visualization_msgs::Marker::SPHERE_LIST;   // trajectory displaied as succession of small spheres
+        // trajectory_sphere.type = visualization_msgs::Marker::LINE_STRIP; // trajectory displaied as a line strip
         trajectory_sphere.action = visualization_msgs::Marker::ADD;
         trajectory_sphere.pose.orientation.w = 0.0;
         trajectory_sphere.scale.x = 0.05; // width
+        trajectory_sphere.scale.y = 0.05;
+        trajectory_sphere.scale.z = 0.05;
         trajectory_sphere.color.r = 1.0f;
         trajectory_sphere.color.g = 0.0f;
         trajectory_sphere.color.b = 0.0f;
@@ -1104,6 +1107,7 @@ int main(int argc, char **argv){
 
     // create one publisher for all the all the markers
     marker_pub = n.advertise<visualization_msgs::MarkerArray>("visualization_marker", 10);
+    //trajectory_pub = n.advertise<visualization_msgs::MarkerArray>("visualization_marker2", 10);
 
     // Display
     // ^^^^^^^
