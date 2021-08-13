@@ -301,7 +301,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
 
         test = predicted_traj.points.size() / MAX_POINTS_TRAJECTORY;
 
-        for(int j=1; j<(predicted_traj.points.size() - 2*test); j+=test){
+        for(int j=test; j<(predicted_traj.points.size() - test); j+=test){
             p_traj.x = predicted_trajectories[j][0][i];
             p_traj.y = predicted_trajectories[j][1][i];
             p_traj.z = predicted_trajectories[j][2][i];
@@ -552,6 +552,222 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
         }
 
         if(_DERG_strategy_id_.data == 3){
+
+            // Blue tube
+            // cylinder1 between current pose and applied ref
+            Point p21, p22;
+            p21.x = obj_pose[i].position.x;
+            p21.y = obj_pose[i].position.y;
+            p21.z = obj_pose[i].position.z;
+            p22.x = ref[0][i];
+            p22.y = ref[1][i];
+            p22.z = ref[2][i];
+            cylinder1.header.frame_id = "/common_origin";
+            cylinder1.id = i;
+            cylinder1.header.stamp = ros::Time::now();
+            cylinder1.ns = "cylinder1";
+            cylinder1.type = visualization_msgs::Marker::CYLINDER; 
+            cylinder1.action = visualization_msgs::Marker::ADD;
+            CylinderOrientation(p21, p22, cylinder_pose, cylinder_height);
+            cylinder1.pose = cylinder_pose;
+            cylinder1.scale.x = 2*_Sa_perp_max_.data;           // x radius
+            cylinder1.scale.y = 2*_Sa_perp_max_.data;           // y radius
+            cylinder1.scale.z = cylinder_height;     // height
+            cylinder1.color.r = 0.4f;
+            cylinder1.color.g = 0.698f;
+            cylinder1.color.b = 1.0f;
+            cylinder1.color.a = 0.6;
+            all_markers.markers.push_back(cylinder1);
+
+            // Blue tube
+            // sphere12 at cylinder ends
+            cylinder_sphere12.header.frame_id = "/common_origin";
+            cylinder_sphere12.header.stamp = ros::Time::now();
+            cylinder_sphere12.ns = "cylinder_sphere12";
+            cylinder_sphere12.id = i;
+            cylinder_sphere12.type = visualization_msgs::Marker::MESH_RESOURCE; 
+            cylinder_sphere12.mesh_resource = "package://visualization_brubotics/meshes/hemisphere1.stl";
+            cylinder_sphere12.pose.position.x = ref[0][i];
+            cylinder_sphere12.pose.position.y = ref[1][i];
+            cylinder_sphere12.pose.position.z = ref[2][i];
+            cylinder_sphere12.pose.orientation = cylinder_pose.orientation;      
+            cylinder_sphere12.scale.x = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere12.scale.y = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere12.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere12.color.r = 0.4f;
+            cylinder_sphere12.color.g = 0.698f;
+            cylinder_sphere12.color.b = 1.0f;
+            cylinder_sphere12.color.a = 0.5;
+            cylinder_sphere12.lifetime = ros::Duration();
+            all_markers.markers.push_back(cylinder_sphere12);
+
+            // Blue tube
+            // sphere11 at cylinder ends
+            cylinder_sphere11.header.frame_id = "/common_origin";
+            cylinder_sphere11.header.stamp = ros::Time::now();
+            cylinder_sphere11.ns = "cylinder_sphere11";
+            cylinder_sphere11.id = i;
+            cylinder_sphere11.type = visualization_msgs::Marker::MESH_RESOURCE; 
+            cylinder_sphere11.mesh_resource = "package://visualization_brubotics/meshes/hemisphere1.stl";
+            cylinder_sphere11.action = visualization_msgs::Marker::ADD;
+            cylinder_sphere11.pose.position = obj_pose[i].position;
+            CylinderOrientation(p22, p21, cylinder_pose, cylinder_height);
+            cylinder_sphere11.pose.orientation = cylinder_pose.orientation;
+            cylinder_sphere11.scale.x = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere11.scale.y = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere11.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere11.color.r = 0.4f;
+            cylinder_sphere11.color.g = 0.698f;
+            cylinder_sphere11.color.b = 1.0f;
+            cylinder_sphere11.color.a = 0.5;
+            cylinder_sphere11.lifetime = ros::Duration();
+            all_markers.markers.push_back(cylinder_sphere11);
+
+            // Transparent tube
+            // cylinder2 between point link star and applied ref
+            Point p23, p24;
+            p23.x = pstar[i].position.x;
+            p23.y = pstar[i].position.y;
+            p23.z = pstar[i].position.z;
+            p24.x = ref[0][i];
+            p24.y = ref[1][i];
+            p24.z = ref[2][i];
+            cylinder2.header.frame_id = "/common_origin";
+            cylinder2.id = i;
+            cylinder2.header.stamp = ros::Time::now();
+            cylinder2.ns = "cylinder2";
+            cylinder2.type = visualization_msgs::Marker::CYLINDER; 
+            cylinder2.action = visualization_msgs::Marker::ADD;
+            CylinderOrientation(p23, p24, cylinder_pose, cylinder_height);
+            cylinder2.pose = cylinder_pose;
+            cylinder2.scale.x = 2*_Sa_perp_max_.data;   // x radius
+            cylinder2.scale.y = 2*_Sa_perp_max_.data;   // y radius
+            cylinder2.scale.z = cylinder_height;        // height
+            cylinder2.color.r = 0.251f;
+            cylinder2.color.g = 0.251f;
+            cylinder2.color.b = 0.251f;
+            cylinder2.color.a = 0.25;
+            all_markers.markers.push_back(cylinder2);
+
+            // Transparent tube
+            // sphere22 at cylinder ends
+            cylinder_sphere22.header.frame_id = "/common_origin";
+            cylinder_sphere22.header.stamp = ros::Time::now();
+            cylinder_sphere22.ns = "cylinder_sphere22";
+            cylinder_sphere22.id = i;
+            cylinder_sphere22.type = visualization_msgs::Marker::MESH_RESOURCE; 
+            cylinder_sphere22.mesh_resource = "package://visualization_brubotics/meshes/hemisphere1.stl";
+            cylinder_sphere22.action = visualization_msgs::Marker::ADD;
+            cylinder_sphere22.pose.position.x = ref[0][i];
+            cylinder_sphere22.pose.position.y = ref[1][i];
+            cylinder_sphere22.pose.position.z = ref[2][i];
+            cylinder_sphere22.pose.orientation = cylinder_pose.orientation;
+            cylinder_sphere22.scale.x = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere22.scale.y = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere22.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere22.color.r = 0.251f;
+            cylinder_sphere22.color.g = 0.251f;
+            cylinder_sphere22.color.b = 0.251f;
+            cylinder_sphere22.color.a = 0.25;
+            cylinder_sphere22.lifetime = ros::Duration();
+            all_markers.markers.push_back(cylinder_sphere22);
+
+            // Transparent tube
+            // sphere21 at cylinder ends
+            cylinder_sphere21.header.frame_id = "/common_origin";
+            cylinder_sphere21.header.stamp = ros::Time::now();
+            cylinder_sphere21.ns = "cylinder_sphere21";
+            cylinder_sphere21.id = i;
+            cylinder_sphere21.type = visualization_msgs::Marker::MESH_RESOURCE; 
+            cylinder_sphere21.mesh_resource = "package://visualization_brubotics/meshes/hemisphere1.stl";
+            cylinder_sphere21.action = visualization_msgs::Marker::ADD;
+            cylinder_sphere21.pose.position = pstar[i].position;
+            CylinderOrientation(p24, p23, cylinder_pose, cylinder_height);
+            cylinder_sphere21.pose.orientation = cylinder_pose.orientation;
+            cylinder_sphere21.scale.x = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere21.scale.y = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere21.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_sphere21.color.r = 0.251f;
+            cylinder_sphere21.color.g = 0.251f;
+            cylinder_sphere21.color.b = 0.251f;
+            cylinder_sphere21.color.a = 0.25;
+            cylinder_sphere21.lifetime = ros::Duration();
+            all_markers.markers.push_back(cylinder_sphere21);
+
+            // Orange tube
+            // cylinder3 between point link star and applied ref
+            Point p25, p26;
+            p25.x = obj_pose[i].position.x;
+            p25.y = obj_pose[i].position.y;
+            p25.z = obj_pose[i].position.z;
+            p26.x = ref[0][i];
+            p26.y = ref[1][i];
+            p26.z = ref[2][i];
+            cylinder3.header.frame_id = "/common_origin";
+            cylinder3.id = i;
+            cylinder3.header.stamp = ros::Time::now();
+            cylinder3.ns = "cylinder3";
+            cylinder3.type = visualization_msgs::Marker::CYLINDER; 
+            cylinder3.action = visualization_msgs::Marker::ADD;
+            CylinderOrientation(p25, p26, cylinder_pose, cylinder_height);
+            cylinder3.pose = cylinder_pose;
+            cylinder3.scale.x = 2*tube_min_radius.data;   // x radius
+            cylinder3.scale.y = 2*tube_min_radius.data;   // y radius
+            cylinder3.scale.z = cylinder_height;        // height
+            cylinder3.color.r = 0.749f;
+            cylinder3.color.g = 0.647f;
+            cylinder3.color.b = 0.412f;
+            cylinder3.color.a = 0.2;
+            all_markers.markers.push_back(cylinder3);
+
+            // Orange tube
+            // sphere32 at cylinder ends
+            cylinder_sphere32.header.frame_id = "/common_origin";
+            cylinder_sphere32.header.stamp = ros::Time::now();
+            cylinder_sphere32.ns = "cylinder_sphere32";
+            cylinder_sphere32.id = i;
+            cylinder_sphere32.type = visualization_msgs::Marker::MESH_RESOURCE; 
+            cylinder_sphere32.mesh_resource = "package://visualization_brubotics/meshes/hemisphere1.stl";
+            cylinder_sphere32.action = visualization_msgs::Marker::ADD;
+            cylinder_sphere32.pose.position.x = ref[0][i];
+            cylinder_sphere32.pose.position.y = ref[1][i];
+            cylinder_sphere32.pose.position.z = ref[2][i];
+            cylinder_sphere32.pose.orientation = cylinder_pose.orientation;     
+            cylinder_sphere32.scale.x = 0.001*tube_min_radius.data; 
+            cylinder_sphere32.scale.y = 0.001*tube_min_radius.data; 
+            cylinder_sphere32.scale.z = 0.001*tube_min_radius.data; 
+            cylinder_sphere32.color.r = 0.749f;
+            cylinder_sphere32.color.g = 0.647f;
+            cylinder_sphere32.color.b = 0.412f;
+            cylinder_sphere32.color.a = 0.2;
+            cylinder_sphere32.lifetime = ros::Duration();
+            all_markers.markers.push_back(cylinder_sphere32);
+            // Orange tube
+            
+            // sphere31 at cylinder ends
+            cylinder_sphere31.header.frame_id = "/common_origin";
+            cylinder_sphere31.header.stamp = ros::Time::now();
+            cylinder_sphere31.ns = "cylinder_sphere31";
+            cylinder_sphere31.id = i;
+            cylinder_sphere31.type = visualization_msgs::Marker::MESH_RESOURCE; 
+            cylinder_sphere31.mesh_resource = "package://visualization_brubotics/meshes/hemisphere1.stl";
+            cylinder_sphere31.action = visualization_msgs::Marker::ADD;
+            cylinder_sphere31.pose.position = obj_pose[i].position;
+            CylinderOrientation(p23, p24, cylinder_pose, cylinder_height);
+            cylinder_sphere31.pose.orientation = cylinder_pose.orientation;
+            cylinder_sphere31.scale.x = 0.001*tube_min_radius.data; 
+            cylinder_sphere31.scale.y = 0.001*tube_min_radius.data; 
+            cylinder_sphere31.scale.z = 0.001*tube_min_radius.data; 
+            cylinder_sphere31.color.r = 0.749f;
+            cylinder_sphere31.color.g = 0.647f;
+            cylinder_sphere31.color.b = 0.412f;
+            cylinder_sphere31.color.a = 0.2;
+            cylinder_sphere31.lifetime = ros::Duration();
+            all_markers.markers.push_back(cylinder_sphere31);
+
+        }
+
+        if(_DERG_strategy_id_.data == 4){
 
             // Blue tube
             // cylinder1 between current pose and applied ref
