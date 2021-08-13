@@ -244,30 +244,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
     // loop for each drone
     for(int i=0; i<2; i++){
 
-        // error sphere at applied ref pose
-        error_sphere.header.frame_id = "/common_origin";
-        error_sphere.header.stamp = ros::Time::now();
-        error_sphere.ns = "error_sphere";
-        error_sphere.id = i;
-        error_sphere.type = visualization_msgs::Marker::SPHERE; 
-        error_sphere.action = visualization_msgs::Marker::ADD;
-        error_sphere.pose.position.x = ref[0][i];
-        error_sphere.pose.position.y = ref[1][i];
-        error_sphere.pose.position.z = ref[2][i];
-        error_sphere.pose.orientation.x = 0;
-        error_sphere.pose.orientation.y = 0;
-        error_sphere.pose.orientation.z = 0;
-        error_sphere.pose.orientation.w = 0.0;
-        error_sphere.scale.x = 2*_Sa_max_.data; 
-        error_sphere.scale.y = 2*_Sa_max_.data; 
-        error_sphere.scale.z = 2*_Sa_max_.data; 
-        error_sphere.color.r = 0.8f;
-        error_sphere.color.g = 0.898f;
-        error_sphere.color.b = 1.0f;
-        error_sphere.color.a = 0.2;
-        error_sphere.lifetime = ros::Duration();
-        all_markers.markers.push_back(error_sphere);
-
         // small sphere at current pose
         current_pose_sphere.header.frame_id = "/common_origin";
         current_pose_sphere.header.stamp = ros::Time::now();
@@ -282,7 +258,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         current_pose_sphere.color.r = 0.6f;
         current_pose_sphere.color.g = 0.6f;
         current_pose_sphere.color.b = 0.6f;
-        current_pose_sphere.color.a = 0.35;
+        current_pose_sphere.color.a = 0.15;
         current_pose_sphere.lifetime = ros::Duration();
         all_markers.markers.push_back(current_pose_sphere);
 
@@ -306,7 +282,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         applied_ref_sphere.color.r = 0.6f;
         applied_ref_sphere.color.g = 0.6f;
         applied_ref_sphere.color.b = 0.6f;
-        applied_ref_sphere.color.a = 0.35;
+        applied_ref_sphere.color.a = 0.15;
         applied_ref_sphere.lifetime = ros::Duration();
         all_markers.markers.push_back(applied_ref_sphere);
 
@@ -342,19 +318,48 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         trajectory_sphere.id = i;
         trajectory_sphere.header.stamp = ros::Time::now();
         trajectory_sphere.ns = "trajectory";
-        trajectory_sphere.type = visualization_msgs::Marker::SPHERE_LIST;   // trajectory displaied as succession of small spheres
+        trajectory_sphere.type = visualization_msgs::Marker::SPHERE_LIST;   // trajectory displaied as a succession of small spheres
         // trajectory_sphere.type = visualization_msgs::Marker::LINE_STRIP; // trajectory displaied as a line strip
         trajectory_sphere.action = visualization_msgs::Marker::ADD;
         trajectory_sphere.pose.orientation.w = 0.0;
-        trajectory_sphere.scale.x = 0.05; // width
-        trajectory_sphere.scale.y = 0.05;
-        trajectory_sphere.scale.z = 0.05;
+        trajectory_sphere.scale.x = 0.1; // width
+        trajectory_sphere.scale.y = 0.1;
+        trajectory_sphere.scale.z = 0.1;
         trajectory_sphere.color.r = 1.0f;
         trajectory_sphere.color.g = 0.0f;
-        trajectory_sphere.color.b = 0.0f;
+        trajectory_sphere.color.b = 1.0f;
         trajectory_sphere.color.a = 1.0;
         all_markers.markers.push_back(trajectory_sphere);
-        ROS_INFO_STREAM("number of points: " << trajectory_sphere.points.size() << ", test: " << test << ", size: " << predicted_traj.points.size());
+        //ROS_INFO_STREAM("number of points: " << trajectory_sphere.points.size() << ", test: " << test << ", size: " << predicted_traj.points.size());
+
+
+        if(_DERG_strategy_id_.data == 0){
+
+            // error sphere at applied ref pose
+            error_sphere.header.frame_id = "/common_origin";
+            error_sphere.header.stamp = ros::Time::now();
+            error_sphere.ns = "error_sphere";
+            error_sphere.id = i;
+            error_sphere.type = visualization_msgs::Marker::SPHERE; 
+            error_sphere.action = visualization_msgs::Marker::ADD;
+            error_sphere.pose.position.x = ref[0][i];
+            error_sphere.pose.position.y = ref[1][i];
+            error_sphere.pose.position.z = ref[2][i];
+            error_sphere.pose.orientation.x = 0;
+            error_sphere.pose.orientation.y = 0;
+            error_sphere.pose.orientation.z = 0;
+            error_sphere.pose.orientation.w = 0.0;
+            error_sphere.scale.x = 2*_Sa_max_.data; 
+            error_sphere.scale.y = 2*_Sa_max_.data; 
+            error_sphere.scale.z = 2*_Sa_max_.data; 
+            error_sphere.color.r = 0.8f;
+            error_sphere.color.g = 0.898f;
+            error_sphere.color.b = 1.0f;
+            error_sphere.color.a = 0.1;
+            error_sphere.lifetime = ros::Duration();
+            all_markers.markers.push_back(error_sphere);
+
+        }
 
         if(_DERG_strategy_id_.data == 1){
 
@@ -381,7 +386,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder1.color.r = 0.4f;
             cylinder1.color.g = 0.698f;
             cylinder1.color.b = 1.0f;
-            cylinder1.color.a = 0.6;
+            cylinder1.color.a = 0.15;
             all_markers.markers.push_back(cylinder1);
 
             // Blue tube
@@ -404,7 +409,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere12.color.r = 0.4f;
             cylinder_hemisphere12.color.g = 0.698f;
             cylinder_hemisphere12.color.b = 1.0f;
-            cylinder_hemisphere12.color.a = 0.5;
+            cylinder_hemisphere12.color.a = 0.15;
             cylinder_hemisphere12.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere12);
 
@@ -427,7 +432,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere11.color.r = 0.4f;
             cylinder_hemisphere11.color.g = 0.698f;
             cylinder_hemisphere11.color.b = 1.0f;
-            cylinder_hemisphere11.color.a = 0.5;
+            cylinder_hemisphere11.color.a = 0.15;
             cylinder_hemisphere11.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere11);
 
@@ -458,7 +463,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder1.color.r = 0.4f;
             cylinder1.color.g = 0.698f;
             cylinder1.color.b = 1.0f;
-            cylinder1.color.a = 0.6;
+            cylinder1.color.a = 0.15;
             all_markers.markers.push_back(cylinder1);
 
             // Blue tube
@@ -480,7 +485,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere12.color.r = 0.4f;
             cylinder_hemisphere12.color.g = 0.698f;
             cylinder_hemisphere12.color.b = 1.0f;
-            cylinder_hemisphere12.color.a = 0.5;
+            cylinder_hemisphere12.color.a = 0.15;
             cylinder_hemisphere12.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere12);
 
@@ -502,7 +507,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere11.color.r = 0.4f;
             cylinder_hemisphere11.color.g = 0.698f;
             cylinder_hemisphere11.color.b = 1.0f;
-            cylinder_hemisphere11.color.a = 0.5;
+            cylinder_hemisphere11.color.a = 0.15;
             cylinder_hemisphere11.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere11);
 
@@ -529,7 +534,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder2.color.r = 0.251f;
             cylinder2.color.g = 0.251f;
             cylinder2.color.b = 0.251f;
-            cylinder2.color.a = 0.25;
+            cylinder2.color.a = 0.1;
             all_markers.markers.push_back(cylinder2);
 
             // Transparent tube
@@ -551,7 +556,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere22.color.r = 0.251f;
             cylinder_hemisphere22.color.g = 0.251f;
             cylinder_hemisphere22.color.b = 0.251f;
-            cylinder_hemisphere22.color.a = 0.25;
+            cylinder_hemisphere22.color.a = 0.1;
             cylinder_hemisphere22.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere22);
 
@@ -573,7 +578,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere21.color.r = 0.251f;
             cylinder_hemisphere21.color.g = 0.251f;
             cylinder_hemisphere21.color.b = 0.251f;
-            cylinder_hemisphere21.color.a = 0.25;
+            cylinder_hemisphere21.color.a = 0.1;
             cylinder_hemisphere21.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere21);
 
@@ -604,7 +609,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder1.color.r = 0.4f;
             cylinder1.color.g = 0.698f;
             cylinder1.color.b = 1.0f;
-            cylinder1.color.a = 0.6;
+            cylinder1.color.a = 0.2;
             all_markers.markers.push_back(cylinder1);
 
             // Blue tube
@@ -625,7 +630,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere12.color.r = 0.4f;
             cylinder_hemisphere12.color.g = 0.698f;
             cylinder_hemisphere12.color.b = 1.0f;
-            cylinder_hemisphere12.color.a = 0.5;
+            cylinder_hemisphere12.color.a = 0.15;
             cylinder_hemisphere12.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere12);
 
@@ -647,7 +652,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere11.color.r = 0.4f;
             cylinder_hemisphere11.color.g = 0.698f;
             cylinder_hemisphere11.color.b = 1.0f;
-            cylinder_hemisphere11.color.a = 0.5;
+            cylinder_hemisphere11.color.a = 0.15;
             cylinder_hemisphere11.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere11);
 
@@ -674,7 +679,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder2.color.r = 0.251f;
             cylinder2.color.g = 0.251f;
             cylinder2.color.b = 0.251f;
-            cylinder2.color.a = 0.25;
+            cylinder2.color.a = 0.1;
             all_markers.markers.push_back(cylinder2);
 
             // Transparent tube
@@ -696,7 +701,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere22.color.r = 0.251f;
             cylinder_hemisphere22.color.g = 0.251f;
             cylinder_hemisphere22.color.b = 0.251f;
-            cylinder_hemisphere22.color.a = 0.25;
+            cylinder_hemisphere22.color.a = 0.1;
             cylinder_hemisphere22.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere22);
 
@@ -718,7 +723,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere21.color.r = 0.251f;
             cylinder_hemisphere21.color.g = 0.251f;
             cylinder_hemisphere21.color.b = 0.251f;
-            cylinder_hemisphere21.color.a = 0.25;
+            cylinder_hemisphere21.color.a = 0.1;
             cylinder_hemisphere21.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere21);
 
@@ -745,7 +750,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder3.color.r = 0.749f;
             cylinder3.color.g = 0.647f;
             cylinder3.color.b = 0.412f;
-            cylinder3.color.a = 0.2;
+            cylinder3.color.a = 0.5;
             all_markers.markers.push_back(cylinder3);
 
             // Orange tube
@@ -767,11 +772,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere32.color.r = 0.749f;
             cylinder_hemisphere32.color.g = 0.647f;
             cylinder_hemisphere32.color.b = 0.412f;
-            cylinder_hemisphere32.color.a = 0.2;
+            cylinder_hemisphere32.color.a = 0.5;
             cylinder_hemisphere32.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere32);
+
             // Orange tube
-            
             // sphere31 at cylinder ends
             cylinder_hemisphere31.header.frame_id = "/common_origin";
             cylinder_hemisphere31.header.stamp = ros::Time::now();
@@ -789,7 +794,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere31.color.r = 0.749f;
             cylinder_hemisphere31.color.g = 0.647f;
             cylinder_hemisphere31.color.b = 0.412f;
-            cylinder_hemisphere31.color.a = 0.2;
+            cylinder_hemisphere31.color.a = 0.5;
             cylinder_hemisphere31.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere31);
 
@@ -820,7 +825,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder1.color.r = 0.4f;
             cylinder1.color.g = 0.698f;
             cylinder1.color.b = 1.0f;
-            cylinder1.color.a = 0.6;
+            cylinder1.color.a = 0.15;
             all_markers.markers.push_back(cylinder1);
 
             // Blue tube
@@ -841,7 +846,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere12.color.r = 0.4f;
             cylinder_hemisphere12.color.g = 0.698f;
             cylinder_hemisphere12.color.b = 1.0f;
-            cylinder_hemisphere12.color.a = 0.5;
+            cylinder_hemisphere12.color.a = 0.15;
             cylinder_hemisphere12.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere12);
 
@@ -863,7 +868,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere11.color.r = 0.4f;
             cylinder_hemisphere11.color.g = 0.698f;
             cylinder_hemisphere11.color.b = 1.0f;
-            cylinder_hemisphere11.color.a = 0.5;
+            cylinder_hemisphere11.color.a = 0.15;
             cylinder_hemisphere11.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere11);
 
@@ -890,7 +895,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder2.color.r = 0.251f;
             cylinder2.color.g = 0.251f;
             cylinder2.color.b = 0.251f;
-            cylinder2.color.a = 0.25;
+            cylinder2.color.a = 0.1;
             all_markers.markers.push_back(cylinder2);
 
             // Transparent tube
@@ -912,7 +917,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere22.color.r = 0.251f;
             cylinder_hemisphere22.color.g = 0.251f;
             cylinder_hemisphere22.color.b = 0.251f;
-            cylinder_hemisphere22.color.a = 0.25;
+            cylinder_hemisphere22.color.a = 0.1;
             cylinder_hemisphere22.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere22);
 
@@ -934,7 +939,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere21.color.r = 0.251f;
             cylinder_hemisphere21.color.g = 0.251f;
             cylinder_hemisphere21.color.b = 0.251f;
-            cylinder_hemisphere21.color.a = 0.25;
+            cylinder_hemisphere21.color.a = 0.1;
             cylinder_hemisphere21.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere21);
 
