@@ -36,11 +36,11 @@ ros::Subscriber DERG_strategy_id_subscriber_;
 ros::Subscriber Sa_max_subscriber_;
 ros::Subscriber Sa_perp_max_subscriber_;
 ros::Subscriber i_min_dist_subscriber_;
-std::vector<ros::Subscriber> uav_current_pose_sub(MAX_UAV_NUMBER);
-std::vector<ros::Subscriber> uav_applied_ref_sub(MAX_UAV_NUMBER);
-std::vector<ros::Subscriber> point_link_star_sub(MAX_UAV_NUMBER);
-std::vector<ros::Subscriber> future_tube_sub(MAX_UAV_NUMBER);
-std::vector<ros::Subscriber> predicted_trajectory_sub(MAX_UAV_NUMBER);
+std::vector<ros::Subscriber> uav_current_pose_subscribers_(MAX_UAV_NUMBER);
+std::vector<ros::Subscriber> uav_applied_ref_subscribers_(MAX_UAV_NUMBER);
+std::vector<ros::Subscriber> point_link_star_subscribers_(MAX_UAV_NUMBER);
+std::vector<ros::Subscriber> future_tube_subscribers_(MAX_UAV_NUMBER);
+std::vector<ros::Subscriber> predicted_trajectory_subscribers_(MAX_UAV_NUMBER);
 
 
 // Messages
@@ -1198,23 +1198,23 @@ int main(int argc, char **argv){
 
         // create subscribers for current uav pose
         f1[i] = boost::bind(CurrentPoseCallback, _1, i+1);
-        uav_current_pose_sub[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/custom_predicted_poses", 10, f1[i]);
+        uav_current_pose_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/custom_predicted_poses", 10, f1[i]);
 
         // create subscribers for uav applied ref
         f2[i] = boost::bind(AppliedRefCallback, _1, i+1);
-        uav_applied_ref_sub[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/uav_applied_ref", 10, f2[i]);
+        uav_applied_ref_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/uav_applied_ref", 10, f2[i]);
 
         // create subscribers for uav point link star
         f3[i] = boost::bind(PointLinkStarCallback, _1, i+1);
-        point_link_star_sub[i] = n.subscribe(diagnostics.active_vehicles[i] +"/control_manager/dergbryan_tracker/point_link_star", 10, f3[i]);
+        point_link_star_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] +"/control_manager/dergbryan_tracker/point_link_star", 10, f3[i]);
 
         // create subscribers for uav predicted trajectory
         f4[i] = boost::bind(PredictedTrajectoryCallback, _1, i+1);
-        predicted_trajectory_sub[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/predicted_trajectory", 10, f4[i]);
+        predicted_trajectory_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/predicted_trajectory", 10, f4[i]);
 
         // create subscribers for uav future tube
         f5[i] = boost::bind(FutureTubeCallback, _1, i+1);
-        future_tube_sub[i] = n.subscribe(diagnostics.active_vehicles[i] +"/control_manager/dergbryan_tracker/future_trajectory_tube", 10, f5[i]);
+        future_tube_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] +"/control_manager/dergbryan_tracker/future_trajectory_tube", 10, f5[i]);
 
     }   
 
