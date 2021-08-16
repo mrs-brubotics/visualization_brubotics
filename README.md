@@ -15,5 +15,5 @@ It must look like this:
         - waitForControl; roslaunch testing_brubotics tf_connector_avoidance.launch 
         - waitForControl; export UAV_NAME=uav1; roslaunch mrs_rviz_plugins load_robot.launch
         - waitForControl; export UAV_NAME=uav2; roslaunch mrs_rviz_plugins load_robot.launch
-        - waitForControl; roslaunch visualization_brubotics sphere.launch
+        - waitForControl; roslaunch visualization_brubotics visual.launch
 ```
