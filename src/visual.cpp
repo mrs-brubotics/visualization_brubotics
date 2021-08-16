@@ -29,13 +29,13 @@ std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories;
 
 
 // Publishers and subscribers
-ros::Publisher marker_pub;
-ros::Publisher trajectory_pub;
-ros::Subscriber diagnostics_sub;
-ros::Subscriber DERG_strategy_id_sub;
-ros::Subscriber Sa_max_sub;
-ros::Subscriber Sa_perp_max_sub;
-ros::Subscriber i_min_dist_sub;
+ros::Publisher marker_publisher_;
+ros::Publisher trajectory_publisher_;
+ros::Subscriber diagnostics_subscriber_;
+ros::Subscriber DERG_strategy_id_subscriber_;
+ros::Subscriber Sa_max_subscriber_;
+ros::Subscriber Sa_perp_max_subscriber_;
+ros::Subscriber i_min_dist_subscriber_;
 std::vector<ros::Subscriber> uav_current_pose_sub(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> uav_applied_ref_sub(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> point_link_star_sub(MAX_UAV_NUMBER);
@@ -1150,9 +1150,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
     line.color.a = 1.0;
     all_markers.markers.push_back(line);
 
-    //trajectory_pub.publish(trajectory_array);
+    //trajectory_publisher_.publish(trajectory_array);
     // all_markers.markers.push_back(trajectory_array);
-    marker_pub.publish(all_markers);
+    marker_publisher_.publish(all_markers);
 
 }
 
@@ -1170,11 +1170,11 @@ int main(int argc, char **argv){
     // ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     // create subscriber for active UAV list
-    diagnostics_sub = n.subscribe("mrs_drone_spawner/diagnostics", 1, DiagnosticsCallback);
-    DERG_strategy_id_sub = n.subscribe("uav1/control_manager/dergbryan_tracker/derg_strategy_id", 1, DERGStrategyIdCallback);
-    Sa_max_sub = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_max", 1, SaMaxCallback);
-    Sa_perp_max_sub = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_perp_max", 1, SaPerpMaxCallback);
-    i_min_dist_sub = n.subscribe("uav1/control_manager/dergbryan_tracker/i_min_dist", 1, IMinDistCallback);
+    diagnostics_subscriber_ = n.subscribe("mrs_drone_spawner/diagnostics", 1, DiagnosticsCallback);
+    DERG_strategy_id_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/derg_strategy_id", 1, DERGStrategyIdCallback);
+    Sa_max_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_max", 1, SaMaxCallback);
+    Sa_perp_max_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_perp_max", 1, SaPerpMaxCallback);
+    i_min_dist_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/i_min_dist", 1, IMinDistCallback);
 
     while(!test1){
         ros::spinOnce();
@@ -1225,7 +1225,7 @@ int main(int argc, char **argv){
     }
 
     // create one publisher for all the all the markers
-    marker_pub = n.advertise<visualization_msgs::MarkerArray>("visualization_marker", 10);
+    marker_publisher_ = n.advertise<visualization_msgs::MarkerArray>("visualization_marker", 10);
 
     // Display
     // ^^^^^^^
