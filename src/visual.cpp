@@ -19,14 +19,13 @@
 #define MAX_UAV_NUMBER 10
 #define MAX_POINTS_TRAJECTORY 50
 
-
+int number_of_uav;
 double Ra = 0.35;
 int test;
 bool test1 = false;
 bool test2 = false;
 std::array<std::array<double, 2>, 3> uav_applied_ref;
 std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories;
-
 
 // Publishers and subscribers
 ros::Publisher marker_publisher_;
@@ -77,7 +76,9 @@ class Point
 
 };
 
-
+void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind);
+void CalculNorm(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm, const int i);
+void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, const double& norm);
 void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& diagnostics);
 void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number);
 void AppliedRefCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
@@ -95,7 +96,7 @@ void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& c
 void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref, 
                     const std::vector<geometry_msgs::Pose>& pstar, 
                     const std::vector<trackers_brubotics::FutureTrajectoryTube>& future_tubes, 
-                    std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories);
+                    std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories, int number_uav);
 
 
 void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& msg){
@@ -177,6 +178,29 @@ void IMinDistCallback(const std_msgs::Int32::ConstPtr& msg){
     ROS_INFO_STREAM("i_min_dist = " << i_min_dist.data);
 }
 
+void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, const double& norm){
+    new_p.x = p1.x + distance * (p2.x-p1.x)/norm;
+    new_p.y = p1.y + distance * (p2.y-p1.y)/norm;
+    new_p.z = p1.z + distance * (p2.z-p1.z)/norm;
+}
+
+void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind){
+    double norm;
+    CalculNorm(point,uav1,uav2,norm_min,0);
+    for(int j=1; j<predicted_traj.points.size(); j++){
+
+            CalculNorm(point,uav1,uav2,norm,j);
+
+            if(norm < norm_min){
+                norm_min = norm;
+                ind = j;
+            }
+        }
+}
+
+void CalculNorm(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm, const int i){
+    norm = sqrt(  (point[i][0][uav1] - point[i][0][uav2])*(point[i][0][uav1] - point[i][0][uav2]) + (point[i][1][uav1] - point[i][1][uav2])*(point[i][1][uav1] - point[i][1][uav2]) + (point[i][2][uav1] - point[i][2][uav2])*(point[i][2][uav1] - point[i][2][uav2]));
+}
 
 double getDistance(const Point& p1, const Point& p2){
     double res;
@@ -218,10 +242,11 @@ void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& c
 void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
                     std::array<std::array<double, 2>, 3> ref, const std::vector<geometry_msgs::Pose>& pstar,
                     const std::vector<trackers_brubotics::FutureTrajectoryTube>& future_tubes,
-                    std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories){
+                    std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories, int number_uav){
     
     visualization_msgs::Marker current_pose_sphere;
     visualization_msgs::Marker error_sphere;
+    visualization_msgs::Marker desired_ref_sphere;
     visualization_msgs::Marker applied_ref_sphere;
     visualization_msgs::Marker cylinder1;
     visualization_msgs::Marker cylinder2;
@@ -241,10 +266,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
     geometry_msgs::Point p;
     geometry_msgs::Point p_traj;
     geometry_msgs::Point p_min_dist;
+    geometry_msgs::Point p_new1, p_new2, p_new3, p_new4;
     double cylinder_height;
 
     // loop for each drone
-    for(int i=0; i<2; i++){
+    for(int i=0; i<number_uav; i++){
 
         // small sphere at current pose
         current_pose_sphere.header.frame_id = "/common_origin";
@@ -1100,58 +1126,90 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             // p_min_dist.z = predicted_trajectories[i_min_dist.data][2][i];
             // line_min_dist.points.push_back(p_min_dist);
 
+            
+
         }
 
     }
 
-    // if(_DERG_strategy_id_.data == 5){
+    if(_DERG_strategy_id_.data == 5){
+        double norm_min;
+        int ind;
+        
+        //calcul minimal norm and return index
+        CalculNormMin(predicted_trajectories,0,1,norm_min,ind);
 
-        // line for minimal distance
+        p_new1.x = predicted_trajectories[ind][0][0];
+        p_new1.y = predicted_trajectories[ind][1][0];
+        p_new1.z = predicted_trajectories[ind][2][0];
+        
+        p_new2.x = predicted_trajectories[ind][0][1];
+        p_new2.y = predicted_trajectories[ind][1][1];
+        p_new2.z = predicted_trajectories[ind][2][1];
 
-        // ends points of the line
-        // for(int j=0; j<predicted_traj.points.size(); j++){
-        //     double norm = sqrt(  (predicted_trajectories[j][0][0] - predicted_trajectories[j][0][1])^2
-        //                        + (predicted_trajectories[j][1][0] - predicted_trajectories[j][1][1])^2
-        //                        + (predicted_trajectories[j][2][0] - predicted_trajectories[j][2][1])^2)
-        //                        -2*Ra;
-            
-        // }
+        //calculate the coordinates of the desired ref position translated by radius Ra
+        GiveTranslatedPoint(p_new1,p_new2,p_new3,Ra,norm_min);
+        GiveTranslatedPoint(p_new2,p_new1,p_new4,Ra,norm_min);
+
+        line_min_dist.points.push_back(p_new3);
+        line_min_dist.points.push_back(p_new4);
+
+        line_min_dist.header.frame_id = "/common_origin";
+        line_min_dist.id = 0;
+        line_min_dist.header.stamp = ros::Time::now();
+        line_min_dist.ns = "minimal_distance";
+        line_min_dist.type = visualization_msgs::Marker::LINE_STRIP; 
+        line_min_dist.action = visualization_msgs::Marker::ADD;
+        line_min_dist.scale.x = 0.05; // width 
+        line_min_dist.color.r = 0.0f;
+        line_min_dist.color.g = 0.0f;
+        line_min_dist.color.b = 0.0f;
+        line_min_dist.color.a = 1.0;
+        all_markers.markers.push_back(line_min_dist);
+
+        desired_ref_sphere.header.frame_id = "/common_origin";
+        desired_ref_sphere.header.stamp = ros::Time::now();
+        desired_ref_sphere.ns = "desired_ref_sphere";
+        desired_ref_sphere.type = visualization_msgs::Marker::SPHERE; 
+        desired_ref_sphere.action = visualization_msgs::Marker::ADD;
+        desired_ref_sphere.pose.orientation.x = 0;
+        desired_ref_sphere.pose.orientation.y = 0;
+        desired_ref_sphere.pose.orientation.z = 0;
+        desired_ref_sphere.scale.x = 2*Ra; 
+        desired_ref_sphere.scale.y = 2*Ra; 
+        desired_ref_sphere.scale.z = 2*Ra; 
+        desired_ref_sphere.color.r = 0.6f;
+        desired_ref_sphere.color.g = 0.6f;
+        desired_ref_sphere.color.b = 0.6f;
+        desired_ref_sphere.color.a = 0.15;
+        desired_ref_sphere.lifetime = ros::Duration();
+
+        desired_ref_sphere.id = 0;
+        desired_ref_sphere.pose.position = p_new1;
+        all_markers.markers.push_back(desired_ref_sphere);
+
+        desired_ref_sphere.id = 1;
+        desired_ref_sphere.pose.position = p_new2;
+        all_markers.markers.push_back(desired_ref_sphere);
+
+        }
 
 
-        // line_min_dist.header.frame_id = "/common_origin";
-        // line_min_dist.id = 0;
-        // line_min_dist.header.stamp = ros::Time::now();
-        // line_min_dist.ns = "minimal_distance";
-        // line_min_dist.type = visualization_msgs::Marker::LINE_STRIP; 
-        // line_min_dist.action = visualization_msgs::Marker::ADD;
-        // line_min_dist.pose.orientation.w = 0.0;
-        // line_min_dist.scale.x = 0.05; // width
-        // line_min_dist.color.r = 0.0f;
-        // line_min_dist.color.g = 0.0f;
-        // line_min_dist.color.b = 0.0f;
-        // line_min_dist.color.a = 1.0;
-        // all_markers.markers.push_back(line_min_dist);
+    // // red line betweetn both current uav pose
+    // line.header.frame_id = "/common_origin";
+    // line.id = 0;
+    // line.header.stamp = ros::Time::now();
+    // line.ns = "line";
+    // line.type = visualization_msgs::Marker::LINE_STRIP; 
+    // line.action = visualization_msgs::Marker::ADD;
+    // line.pose.orientation.w = 1.0;
+    // line.scale.x = 0.05; // width
+    // line.color.r = 1.0f;
+    // line.color.g = 0.0f;
+    // line.color.b = 0.0f;
+    // line.color.a = 1.0;
+    // all_markers.markers.push_back(line);
 
-        // }
-
-
-    // red line betweetn both current uav pose
-    line.header.frame_id = "/common_origin";
-    line.id = 0;
-    line.header.stamp = ros::Time::now();
-    line.ns = "line";
-    line.type = visualization_msgs::Marker::LINE_STRIP; 
-    line.action = visualization_msgs::Marker::ADD;
-    line.pose.orientation.w = 1.0;
-    line.scale.x = 0.05; // width
-    line.color.r = 1.0f;
-    line.color.g = 0.0f;
-    line.color.b = 0.0f;
-    line.color.a = 1.0;
-    all_markers.markers.push_back(line);
-
-    //trajectory_publisher_.publish(trajectory_array);
-    // all_markers.markers.push_back(trajectory_array);
     marker_publisher_.publish(all_markers);
 
 }
@@ -1181,7 +1239,7 @@ int main(int argc, char **argv){
         r.sleep();
 
     }
-    
+    number_of_uav = diagnostics.active_vehicles.size();
     // create subscribers
     std::vector<boost::function<void (const geometry_msgs::PoseArray::ConstPtr&)>> f1;
     f1.resize(MAX_UAV_NUMBER);
@@ -1231,7 +1289,7 @@ int main(int argc, char **argv){
     // ^^^^^^^
 
     while(ros::ok){
-        PublishMarkers(uav_current_poses, uav_applied_ref, point_link_stars, future_tubes, predicted_trajectories);                   
+        PublishMarkers(uav_current_poses, uav_applied_ref, point_link_stars, future_tubes, predicted_trajectories, number_of_uav);                   
         ros::spinOnce();
         r.sleep();
 
