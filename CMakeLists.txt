@@ -130,15 +130,15 @@ include_directories(
 )
 
 #This will create executables of the nodes
-add_executable(sphere src/sphere.cpp)
+add_executable(visual src/visual.cpp)
 
 # ## Declare a C++ library
 # add_library(visualization_brubotics
-#   src/sphere.cpp
+#   src/visual.cpp
 # )
 
 #This will link executables to the appropriate libraries
-target_link_libraries(sphere ${catkin_LIBRARIES})
+target_link_libraries(visual ${catkin_LIBRARIES})
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
