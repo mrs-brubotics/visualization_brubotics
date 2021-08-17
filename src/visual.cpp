@@ -16,27 +16,31 @@
 #include <iostream>
 #include <string>
 
-#define MAX_UAV_NUMBER 10           // Maximum number of UAVs for the visualization
+#define MAX_UAV_NUMBER 10           // Maximum number of UAVs for the visualization, used to initialized vectors and arrays
 #define MAX_POINTS_TRAJECTORY 50    // Maximum number of points used to display the trajectory
 
 
-// | -------------------------------- Parameters ------------------------------- |
-int number_of_uav;
-double Ra = 0.35;
-int test;
+// | -------------------------------- Parameters -------------------------------- |
+
 bool test1 = false;
 bool test2 = false;
+int step;           // displayed trajectory points step
+double Ra = 0.35;   // drone's radius
+int number_of_uav;
 std::array<std::array<double, 2>, 3> uav_applied_ref;
 std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories;
 
 
 // | ------------------------ Publishers and subscribers ----------------------- |
+
+// Publishers
 ros::Publisher marker_publisher_;
 ros::Publisher trajectory_publisher_;
+// Subscribers
 ros::Subscriber diagnostics_subscriber_;
 ros::Subscriber DERG_strategy_id_subscriber_;
-ros::Subscriber Sa_max_subscriber_;
-ros::Subscriber Sa_perp_max_subscriber_;
+ros::Subscriber Sa_subscriber_;             
+ros::Subscriber Sa_perp_subscriber_;
 ros::Subscriber tube_min_radius_subscriber_;
 std::vector<ros::Subscriber> uav_current_pose_subscribers_(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> uav_applied_ref_subscribers_(MAX_UAV_NUMBER);
@@ -46,23 +50,25 @@ std::vector<ros::Subscriber> predicted_trajectory_subscribers_(MAX_UAV_NUMBER);
 
 
 // | -------------------------------- Messages --------------------------------- |
-mrs_msgs::SpawnerDiagnostics diagnostics;
+
+mrs_msgs::SpawnerDiagnostics diagnostics;               // we use the "active_vehicles" member of this message to set the number_of_uav
 mrs_msgs::FutureTrajectory uav_applied_ref_traj;
 mrs_msgs::FutureTrajectory predicted_traj;
+trackers_brubotics::FutureTrajectoryTube future_tube;
 geometry_msgs::PoseArray uav_current_pose;
 geometry_msgs::Pose cylinder_pose;
 geometry_msgs::Pose point_link_star;
 std_msgs::Int32 _DERG_strategy_id_;
-std_msgs::Int32 _Sa_max_;
-std_msgs::Int32 _Sa_perp_max_;
+std_msgs::Int32 Sa_;                                    // error sphere radius (strategy 0)
+std_msgs::Int32 Sa_min_perp;
 std_msgs::Float32 tube_min_radius;
-trackers_brubotics::FutureTrajectoryTube future_tube;
 std::vector<geometry_msgs::Pose> uav_current_poses(MAX_UAV_NUMBER);
 std::vector<geometry_msgs::Pose> point_link_stars(MAX_UAV_NUMBER);
 std::vector<trackers_brubotics::FutureTrajectoryTube> future_tubes(MAX_UAV_NUMBER);
 
 
 // | ---------------------------------- Class --------------------------------- |
+
 class Point
 {
 
@@ -82,23 +88,28 @@ class Point
 
 
 // | --------------------------- Function prototypes -------------------------- |
-void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind);
-void CalculNorm(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm, const int i);
-void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, const double& norm);
-void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg);
+
+// Callbacks
 void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& diagnostics);
+void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg);
+void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
+
 void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number);
 void AppliedRefCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
-void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
 void PointLinkStarCallback(const geometry_msgs::Pose::ConstPtr& msg, int uav_number);
 void FutureTubeCallback(const trackers_brubotics::FutureTrajectoryTube::ConstPtr& msg, int uav_number);
-void SaMaxCallback(const std_msgs::Int32::ConstPtr& msg);
-void SaPerpMaxCallback(const std_msgs::Int32::ConstPtr& msg);
-void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg);
-void IMinDistCallback(const std_msgs::Int32::ConstPtr& msg);
+
+void SaCallback(const std_msgs::Int32::ConstPtr& msg);
+void SaPerpCallback(const std_msgs::Int32::ConstPtr& msg);
+void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg);
+
+// Others functions
 double getDistance(const Point& p1, const Point& p2);
 Point getMiddle(const Point& pt1, const Point& pt2);
 void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& cylinder_pose, double& cylinder_height);
+void CalculNorm(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm, const int i);
+void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind);
+void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, const double& norm);
 void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref, 
                     const std::vector<geometry_msgs::Pose>& pstar, 
                     const std::vector<trackers_brubotics::FutureTrajectoryTube>& future_tubes, 
@@ -107,11 +118,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
 
 // | -------------------------------- Callbacks ------------------------------- |
 
-void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg){
-    tube_min_radius.data = msg -> data;
-    ROS_INFO_STREAM("tube_min_radius = " << tube_min_radius.data);
-}
-
 void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& msg){
     if (test1){
         return;
@@ -119,6 +125,22 @@ void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& msg){
     diagnostics.active_vehicles = msg -> active_vehicles;
     //ROS_INFO_STREAM("UAV list: " << diagnostics.active_vehicles[0] << ", " << diagnostics.active_vehicles[1]);
     test1 = true;
+}
+
+void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg){
+    _DERG_strategy_id_.data = msg -> data;
+    //ROS_INFO_STREAM("DERG_strategy_id = " << _DERG_strategy_id_.data);
+}
+
+void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number){
+    predicted_traj.points = msg -> points;
+    for(int i=0; i<predicted_traj.points.size(); i++){
+        predicted_trajectories[i][0][uav_number-1] = predicted_traj.points[i].x;
+        predicted_trajectories[i][1][uav_number-1] = predicted_traj.points[i].y;
+        predicted_trajectories[i][2][uav_number-1] = predicted_traj.points[i].z;
+        //ROS_INFO_STREAM("x : " << predicted_trajectories[i][0][uav_number-1]);
+    }
+    test2 = true;
 }
 
 void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number){
@@ -133,21 +155,6 @@ void AppliedRefCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav
     uav_applied_ref[1][uav_number-1] = uav_applied_ref_traj.points[0].y;
     uav_applied_ref[2][uav_number-1] = uav_applied_ref_traj.points[0].z;
     //ROS_INFO_STREAM("UAV " << uav_number << ": x = " << uav_applied_ref[0][uav_number-1] << ", y = " << uav_applied_ref[1][uav_number-1] << ", z = " << uav_applied_ref[2][uav_number-1]);
-}
-
-void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number){
-    predicted_traj.points = msg -> points;
-    for(int i=0; i<predicted_traj.points.size(); i++){
-        predicted_trajectories[i][0][uav_number-1] = predicted_traj.points[i].x;
-        predicted_trajectories[i][1][uav_number-1] = predicted_traj.points[i].y;
-        predicted_trajectories[i][2][uav_number-1] = predicted_traj.points[i].z;
-        //ROS_INFO_STREAM("x : " << predicted_trajectories[i][0][uav_number-1]);
-    }
-    
-    if(test2){
-        return;
-    }
-    test2 = true;
 }
 
 void PointLinkStarCallback(const geometry_msgs::Pose::ConstPtr& msg, int uav_number){
@@ -166,55 +173,32 @@ void FutureTubeCallback(const trackers_brubotics::FutureTrajectoryTube::ConstPtr
     //ROS_INFO_STREAM("UAV" << uav_number << ": " << future_tubes[uav_number-1]);
 }
 
-void SaMaxCallback(const std_msgs::Int32::ConstPtr& msg){
-    _Sa_max_.data = msg -> data;
-    //ROS_INFO_STREAM("_Sa_max_ = " << _Sa_max_.data);
+void SaCallback(const std_msgs::Int32::ConstPtr& msg){
+    Sa_.data = msg -> data;
+    //ROS_INFO_STREAM("Sa_ = " << Sa_.data);
 }
 
-void SaPerpMaxCallback(const std_msgs::Int32::ConstPtr& msg){
-    _Sa_perp_max_.data = msg -> data;
-    //ROS_INFO_STREAM("_Sa_perp_max_ = " << _Sa_perp_max_.data);
+void SaPerpCallback(const std_msgs::Int32::ConstPtr& msg){
+    Sa_min_perp.data = msg -> data;
+    //ROS_INFO_STREAM("Sa_min_perp = " << Sa_min_perp.data);
 }
 
-void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg){
-    _DERG_strategy_id_.data = msg -> data;
-    //ROS_INFO_STREAM("DERG_strategy_id = " << _DERG_strategy_id_.data);
+void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg){
+    tube_min_radius.data = msg -> data;
+    //ROS_INFO_STREAM("tube_min_radius = " << tube_min_radius.data);
 }
 
 
+// | -------------------------- Function definitions -------------------------- |
 
-// | -------------------------------- xxxxxxxx -------------------------------- |
-
-void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, const double& norm){
-    new_p.x = p1.x + distance * (p2.x-p1.x)/norm;
-    new_p.y = p1.y + distance * (p2.y-p1.y)/norm;
-    new_p.z = p1.z + distance * (p2.z-p1.z)/norm;
-}
-
-void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind){
-    double norm;
-    CalculNorm(point,uav1,uav2,norm_min,0);
-    for(int j=1; j<predicted_traj.points.size(); j++){
-
-            CalculNorm(point,uav1,uav2,norm,j);
-
-            if(norm < norm_min){
-                norm_min = norm;
-                ind = j;
-            }
-        }
-}
-
-void CalculNorm(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm, const int i){
-    norm = sqrt(  (point[i][0][uav1] - point[i][0][uav2])*(point[i][0][uav1] - point[i][0][uav2]) + (point[i][1][uav1] - point[i][1][uav2])*(point[i][1][uav1] - point[i][1][uav2]) + (point[i][2][uav1] - point[i][2][uav2])*(point[i][2][uav1] - point[i][2][uav2]));
-}
-
+// Return the distance between two points
 double getDistance(const Point& p1, const Point& p2){
     double res;
     res = sqrt((p1.x-p2.x)*(p1.x-p2.x)+(p1.y-p2.y)*(p1.y-p2.y)+(p1.z-p2.z)*(p1.z-p2.z));
     return res;
 }
 
+// Return the middle point of two points
 Point getMiddle(const Point& pt1, const Point& pt2){
     Point res;
     res.x = (pt1.x + pt2.x)*0.5;
@@ -223,6 +207,7 @@ Point getMiddle(const Point& pt1, const Point& pt2){
     return res;
 }
 
+// Calculate the pose and the height of a cylinder formed from two points
 void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& cylinder_pose, double& cylinder_height){
 
     Point middle = getMiddle(p1, p2);
@@ -243,9 +228,36 @@ void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& c
     cylinder_pose.orientation.y = axis.y() * sin(angle/2);
     cylinder_pose.orientation.z = axis.z() * sin(angle/2);
     cylinder_pose.orientation.w = cos(angle/2);
-
 }
 
+// From point p1, calculate the new point new_p transposed by distance in the direction formed by the director vector (p2, p1)
+void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, const double& norm){
+    new_p.x = p1.x + distance * (p2.x-p1.x)/norm;
+    new_p.y = p1.y + distance * (p2.y-p1.y)/norm;
+    new_p.z = p1.z + distance * (p2.z-p1.z)/norm;
+}
+
+// Calculate the norm vector of two UAVs trajectories
+void CalculNorm(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm, const int i){
+    norm = sqrt(  (point[i][0][uav1] - point[i][0][uav2])*(point[i][0][uav1] - point[i][0][uav2]) + (point[i][1][uav1] - point[i][1][uav2])*(point[i][1][uav1] - point[i][1][uav2]) + (point[i][2][uav1] - point[i][2][uav2])*(point[i][2][uav1] - point[i][2][uav2]));
+}
+
+// Calculate the minimal norm of two UAVs trajectories
+void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind){
+    double norm;
+    CalculNorm(point,uav1,uav2,norm_min,0);
+    for(int j=1; j<predicted_traj.points.size(); j++){
+
+            CalculNorm(point,uav1,uav2,norm,j);
+
+            if(norm < norm_min){
+                norm_min = norm;
+                ind = j;
+            }
+        }
+}
+
+// Publish all the markers
 void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
                     std::array<std::array<double, 2>, 3> ref, const std::vector<geometry_msgs::Pose>& pstar,
                     const std::vector<trackers_brubotics::FutureTrajectoryTube>& future_tubes,
@@ -287,9 +299,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         current_pose_sphere.type = visualization_msgs::Marker::SPHERE; 
         current_pose_sphere.action = visualization_msgs::Marker::ADD;
         current_pose_sphere.pose = obj_pose[i];
-        current_pose_sphere.scale.x = 2*Ra; 
-        current_pose_sphere.scale.y = 2*Ra; 
-        current_pose_sphere.scale.z = 2*Ra; 
+        current_pose_sphere.scale.x = 2*Ra;     // radius
+        current_pose_sphere.scale.y = 2*Ra;     // radius
+        current_pose_sphere.scale.z = 2*Ra;     // radius
         current_pose_sphere.color.r = 0.6f;
         current_pose_sphere.color.g = 0.6f;
         current_pose_sphere.color.b = 0.6f;
@@ -311,9 +323,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         applied_ref_sphere.pose.orientation.y = 0;
         applied_ref_sphere.pose.orientation.z = 0;
         applied_ref_sphere.pose.orientation.w = 1.0;
-        applied_ref_sphere.scale.x = 2*Ra; 
-        applied_ref_sphere.scale.y = 2*Ra; 
-        applied_ref_sphere.scale.z = 2*Ra; 
+        applied_ref_sphere.scale.x = 2*Ra;      // radius
+        applied_ref_sphere.scale.y = 2*Ra;      // radius
+        applied_ref_sphere.scale.z = 2*Ra;      // radius
         applied_ref_sphere.color.r = 0.6f;
         applied_ref_sphere.color.g = 0.6f;
         applied_ref_sphere.color.b = 0.6f;
@@ -322,10 +334,10 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         all_markers.markers.push_back(applied_ref_sphere);
 
         // ends points of the line
-        p.x = obj_pose[i].position.x;
-        p.y = obj_pose[i].position.y;
-        p.z = obj_pose[i].position.z;
-        line.points.push_back(p);
+        // p.x = obj_pose[i].position.x;
+        // p.y = obj_pose[i].position.y;
+        // p.z = obj_pose[i].position.z;
+        // line.points.push_back(p);
 
         // Predicted trajectory
         trajectory_sphere.points.clear();
@@ -335,9 +347,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         p_traj.z = predicted_trajectories[0][2][i];
         trajectory_sphere.points.push_back(p_traj);
 
-        test = predicted_traj.points.size() / MAX_POINTS_TRAJECTORY;
+        step = predicted_traj.points.size() / MAX_POINTS_TRAJECTORY;
 
-        for(int j=test; j<(predicted_traj.points.size() - test); j+=test){
+        for(int j=step; j<(predicted_traj.points.size() - step); j+=step){
             p_traj.x = predicted_trajectories[j][0][i];
             p_traj.y = predicted_trajectories[j][1][i];
             p_traj.z = predicted_trajectories[j][2][i];
@@ -357,15 +369,15 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         // trajectory_sphere.type = visualization_msgs::Marker::LINE_STRIP; // trajectory displaied as a line strip
         trajectory_sphere.action = visualization_msgs::Marker::ADD;
         trajectory_sphere.pose.orientation.w = 1.0;
-        trajectory_sphere.scale.x = 0.1; // width
-        trajectory_sphere.scale.y = 0.1;
-        trajectory_sphere.scale.z = 0.1;
+        trajectory_sphere.scale.x = 0.1;    // radius
+        trajectory_sphere.scale.y = 0.1;    // radius
+        trajectory_sphere.scale.z = 0.1;    // radius
         trajectory_sphere.color.r = 1.0f;
         trajectory_sphere.color.g = 0.0f;
         trajectory_sphere.color.b = 1.0f;
         trajectory_sphere.color.a = 1.0;
         all_markers.markers.push_back(trajectory_sphere);
-        //ROS_INFO_STREAM("number of points: " << trajectory_sphere.points.size() << ", test: " << test << ", size: " << predicted_traj.points.size());
+        //ROS_INFO_STREAM("number of points: " << trajectory_sphere.points.size() << ", step: " << step << ", size: " << predicted_traj.points.size());
 
 
         if(_DERG_strategy_id_.data == 0){
@@ -384,9 +396,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             error_sphere.pose.orientation.y = 0;
             error_sphere.pose.orientation.z = 0;
             error_sphere.pose.orientation.w = 1.0;
-            error_sphere.scale.x = 2*_Sa_max_.data; 
-            error_sphere.scale.y = 2*_Sa_max_.data; 
-            error_sphere.scale.z = 2*_Sa_max_.data; 
+            error_sphere.scale.x = 2*Sa_.data;      // radius
+            error_sphere.scale.y = 2*Sa_.data;      // radius
+            error_sphere.scale.z = 2*Sa_.data;      // radius
             error_sphere.color.r = 0.8f;
             error_sphere.color.g = 0.898f;
             error_sphere.color.b = 1.0f;
@@ -415,9 +427,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder1.action = visualization_msgs::Marker::ADD;
             CylinderOrientation(p1, p2, cylinder_pose, cylinder_height);
             cylinder1.pose = cylinder_pose;
-            cylinder1.scale.x = 2*_Sa_perp_max_.data;           // x radius
-            cylinder1.scale.y = 2*_Sa_perp_max_.data;           // y radius
-            cylinder1.scale.z = cylinder_height;     // height
+            cylinder1.scale.x = 2*Sa_min_perp.data;    // radius
+            cylinder1.scale.y = 2*Sa_min_perp.data;    // radius
+            cylinder1.scale.z = cylinder_height;    // height
             cylinder1.color.r = 0.4f;
             cylinder1.color.g = 0.698f;
             cylinder1.color.b = 1.0f;
@@ -438,9 +450,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere12.pose.position.z = ref[2][i];
             cylinder_hemisphere12.pose.orientation = cylinder_pose.orientation;
             //ROS_INFO_STREAM("sphere 1 " << cylinder_pose.orientation);      
-            cylinder_hemisphere12.scale.x = 0.001 * _Sa_perp_max_.data; 
-            cylinder_hemisphere12.scale.y = 0.001 * _Sa_perp_max_.data; 
-            cylinder_hemisphere12.scale.z = 0.001 * _Sa_perp_max_.data; 
+            cylinder_hemisphere12.scale.x = 0.001 * Sa_min_perp.data; 
+            cylinder_hemisphere12.scale.y = 0.001 * Sa_min_perp.data; 
+            cylinder_hemisphere12.scale.z = 0.001 * Sa_min_perp.data; 
             cylinder_hemisphere12.color.r = 0.4f;
             cylinder_hemisphere12.color.g = 0.698f;
             cylinder_hemisphere12.color.b = 1.0f;
@@ -461,9 +473,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             CylinderOrientation(p2, p1, cylinder_pose, cylinder_height);
             cylinder_hemisphere11.pose.orientation = cylinder_pose.orientation;
             //ROS_INFO_STREAM("sphere 2 " << cylinder_pose.orientation);
-            cylinder_hemisphere11.scale.x = 0.001 *_Sa_perp_max_.data; 
-            cylinder_hemisphere11.scale.y = 0.001 *_Sa_perp_max_.data; 
-            cylinder_hemisphere11.scale.z = 0.001 *_Sa_perp_max_.data; 
+            cylinder_hemisphere11.scale.x = 0.001 *Sa_min_perp.data; 
+            cylinder_hemisphere11.scale.y = 0.001 *Sa_min_perp.data; 
+            cylinder_hemisphere11.scale.z = 0.001 *Sa_min_perp.data; 
             cylinder_hemisphere11.color.r = 0.4f;
             cylinder_hemisphere11.color.g = 0.698f;
             cylinder_hemisphere11.color.b = 1.0f;
@@ -492,9 +504,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder1.action = visualization_msgs::Marker::ADD;
             CylinderOrientation(p21, p22, cylinder_pose, cylinder_height);
             cylinder1.pose = cylinder_pose;
-            cylinder1.scale.x = 2*_Sa_perp_max_.data;           // x radius
-            cylinder1.scale.y = 2*_Sa_perp_max_.data;           // y radius
-            cylinder1.scale.z = cylinder_height;     // height
+            cylinder1.scale.x = 2*Sa_min_perp.data;    // radius
+            cylinder1.scale.y = 2*Sa_min_perp.data;    // radius
+            cylinder1.scale.z = cylinder_height;    // height
             cylinder1.color.r = 0.4f;
             cylinder1.color.g = 0.698f;
             cylinder1.color.b = 1.0f;
@@ -514,9 +526,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere12.pose.position.y = ref[1][i];
             cylinder_hemisphere12.pose.position.z = ref[2][i];
             cylinder_hemisphere12.pose.orientation = cylinder_pose.orientation;        
-            cylinder_hemisphere12.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere12.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere12.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere12.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere12.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere12.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere12.color.r = 0.4f;
             cylinder_hemisphere12.color.g = 0.698f;
             cylinder_hemisphere12.color.b = 1.0f;
@@ -536,9 +548,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere11.pose.position = obj_pose[i].position;
             CylinderOrientation(p22, p21, cylinder_pose, cylinder_height);
             cylinder_hemisphere11.pose.orientation = cylinder_pose.orientation;
-            cylinder_hemisphere11.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere11.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere11.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere11.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere11.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere11.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere11.color.r = 0.4f;
             cylinder_hemisphere11.color.g = 0.698f;
             cylinder_hemisphere11.color.b = 1.0f;
@@ -563,9 +575,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder2.action = visualization_msgs::Marker::ADD;
             CylinderOrientation(p23, p24, cylinder_pose, cylinder_height);
             cylinder2.pose = cylinder_pose;
-            cylinder2.scale.x = 2*_Sa_perp_max_.data;   // x radius
-            cylinder2.scale.y = 2*_Sa_perp_max_.data;   // y radius
-            cylinder2.scale.z = cylinder_height;        // height
+            cylinder2.scale.x = 2*Sa_min_perp.data;   // radius
+            cylinder2.scale.y = 2*Sa_min_perp.data;   // radius
+            cylinder2.scale.z = cylinder_height;   // height
             cylinder2.color.r = 0.251f;
             cylinder2.color.g = 0.251f;
             cylinder2.color.b = 0.251f;
@@ -585,9 +597,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere22.pose.position.y = ref[1][i];
             cylinder_hemisphere22.pose.position.z = ref[2][i];
             cylinder_hemisphere22.pose.orientation = cylinder_pose.orientation;      
-            cylinder_hemisphere22.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere22.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere22.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere22.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere22.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere22.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere22.color.r = 0.251f;
             cylinder_hemisphere22.color.g = 0.251f;
             cylinder_hemisphere22.color.b = 0.251f;
@@ -607,9 +619,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere21.pose.position = pstar[i].position;
             CylinderOrientation(p24, p23, cylinder_pose, cylinder_height);
             cylinder_hemisphere21.pose.orientation = cylinder_pose.orientation;
-            cylinder_hemisphere21.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere21.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere21.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere21.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere21.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere21.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere21.color.r = 0.251f;
             cylinder_hemisphere21.color.g = 0.251f;
             cylinder_hemisphere21.color.b = 0.251f;
@@ -638,9 +650,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder1.action = visualization_msgs::Marker::ADD;
             CylinderOrientation(p21, p22, cylinder_pose, cylinder_height);
             cylinder1.pose = cylinder_pose;
-            cylinder1.scale.x = 2*_Sa_perp_max_.data;           // x radius
-            cylinder1.scale.y = 2*_Sa_perp_max_.data;           // y radius
-            cylinder1.scale.z = cylinder_height;     // height
+            cylinder1.scale.x = 2*Sa_min_perp.data;     // radius
+            cylinder1.scale.y = 2*Sa_min_perp.data;     // radius
+            cylinder1.scale.z = cylinder_height;        // height
             cylinder1.color.r = 0.4f;
             cylinder1.color.g = 0.698f;
             cylinder1.color.b = 1.0f;
@@ -659,9 +671,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere12.pose.position.y = ref[1][i];
             cylinder_hemisphere12.pose.position.z = ref[2][i];
             cylinder_hemisphere12.pose.orientation = cylinder_pose.orientation;      
-            cylinder_hemisphere12.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere12.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere12.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere12.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere12.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere12.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere12.color.r = 0.4f;
             cylinder_hemisphere12.color.g = 0.698f;
             cylinder_hemisphere12.color.b = 1.0f;
@@ -681,9 +693,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere11.pose.position = obj_pose[i].position;
             CylinderOrientation(p22, p21, cylinder_pose, cylinder_height);
             cylinder_hemisphere11.pose.orientation = cylinder_pose.orientation;
-            cylinder_hemisphere11.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere11.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere11.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere11.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere11.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere11.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere11.color.r = 0.4f;
             cylinder_hemisphere11.color.g = 0.698f;
             cylinder_hemisphere11.color.b = 1.0f;
@@ -708,9 +720,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder2.action = visualization_msgs::Marker::ADD;
             CylinderOrientation(p23, p24, cylinder_pose, cylinder_height);
             cylinder2.pose = cylinder_pose;
-            cylinder2.scale.x = 2*_Sa_perp_max_.data;   // x radius
-            cylinder2.scale.y = 2*_Sa_perp_max_.data;   // y radius
-            cylinder2.scale.z = cylinder_height;        // height
+            cylinder2.scale.x = 2*Sa_min_perp.data;    // radius
+            cylinder2.scale.y = 2*Sa_min_perp.data;    // radius
+            cylinder2.scale.z = cylinder_height;    // height
             cylinder2.color.r = 0.251f;
             cylinder2.color.g = 0.251f;
             cylinder2.color.b = 0.251f;
@@ -730,9 +742,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere22.pose.position.y = ref[1][i];
             cylinder_hemisphere22.pose.position.z = ref[2][i];
             cylinder_hemisphere22.pose.orientation = cylinder_pose.orientation;
-            cylinder_hemisphere22.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere22.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere22.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere22.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere22.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere22.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere22.color.r = 0.251f;
             cylinder_hemisphere22.color.g = 0.251f;
             cylinder_hemisphere22.color.b = 0.251f;
@@ -752,9 +764,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere21.pose.position = pstar[i].position;
             CylinderOrientation(p24, p23, cylinder_pose, cylinder_height);
             cylinder_hemisphere21.pose.orientation = cylinder_pose.orientation;
-            cylinder_hemisphere21.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere21.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere21.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere21.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere21.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere21.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere21.color.r = 0.251f;
             cylinder_hemisphere21.color.g = 0.251f;
             cylinder_hemisphere21.color.b = 0.251f;
@@ -779,9 +791,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder3.action = visualization_msgs::Marker::ADD;
             CylinderOrientation(p25, p26, cylinder_pose, cylinder_height);
             cylinder3.pose = cylinder_pose;
-            cylinder3.scale.x = 2*future_tubes[i].min_radius;   // x radius
-            cylinder3.scale.y = 2*future_tubes[i].min_radius;   // y radius
-            cylinder3.scale.z = cylinder_height;        // height
+            cylinder3.scale.x = 2*future_tubes[i].min_radius;   // radius
+            cylinder3.scale.y = 2*future_tubes[i].min_radius;   // radius
+            cylinder3.scale.z = cylinder_height;                // height
             cylinder3.color.r = 0.749f;
             cylinder3.color.g = 0.647f;
             cylinder3.color.b = 0.412f;
@@ -801,9 +813,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere32.pose.position.y = ref[1][i];
             cylinder_hemisphere32.pose.position.z = ref[2][i];
             cylinder_hemisphere32.pose.orientation = cylinder_pose.orientation;     
-            cylinder_hemisphere32.scale.x = 0.001*future_tubes[i].min_radius; 
-            cylinder_hemisphere32.scale.y = 0.001*future_tubes[i].min_radius; 
-            cylinder_hemisphere32.scale.z = 0.001*future_tubes[i].min_radius; 
+            cylinder_hemisphere32.scale.x = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
+            cylinder_hemisphere32.scale.y = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
+            cylinder_hemisphere32.scale.z = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
             cylinder_hemisphere32.color.r = 0.749f;
             cylinder_hemisphere32.color.g = 0.647f;
             cylinder_hemisphere32.color.b = 0.412f;
@@ -823,9 +835,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere31.pose.position = obj_pose[i].position;
             CylinderOrientation(p24, p23, cylinder_pose, cylinder_height);
             cylinder_hemisphere31.pose.orientation = cylinder_pose.orientation;
-            cylinder_hemisphere31.scale.x = 0.001*future_tubes[i].min_radius; 
-            cylinder_hemisphere31.scale.y = 0.001*future_tubes[i].min_radius; 
-            cylinder_hemisphere31.scale.z = 0.001*future_tubes[i].min_radius; 
+            cylinder_hemisphere31.scale.x = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
+            cylinder_hemisphere31.scale.y = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
+            cylinder_hemisphere31.scale.z = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
             cylinder_hemisphere31.color.r = 0.749f;
             cylinder_hemisphere31.color.g = 0.647f;
             cylinder_hemisphere31.color.b = 0.412f;
@@ -854,9 +866,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder1.action = visualization_msgs::Marker::ADD;
             CylinderOrientation(p21, p22, cylinder_pose, cylinder_height);
             cylinder1.pose = cylinder_pose;
-            cylinder1.scale.x = 2*_Sa_perp_max_.data;           // x radius
-            cylinder1.scale.y = 2*_Sa_perp_max_.data;           // y radius
-            cylinder1.scale.z = cylinder_height;     // height
+            cylinder1.scale.x = 2*Sa_min_perp.data;     // radius
+            cylinder1.scale.y = 2*Sa_min_perp.data;     // radius
+            cylinder1.scale.z = cylinder_height;        // height
             cylinder1.color.r = 0.4f;
             cylinder1.color.g = 0.698f;
             cylinder1.color.b = 1.0f;
@@ -875,9 +887,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere12.pose.position.y = ref[1][i];
             cylinder_hemisphere12.pose.position.z = ref[2][i];
             cylinder_hemisphere12.pose.orientation = cylinder_pose.orientation;      
-            cylinder_hemisphere12.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere12.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere12.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere12.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere12.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere12.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere12.color.r = 0.4f;
             cylinder_hemisphere12.color.g = 0.698f;
             cylinder_hemisphere12.color.b = 1.0f;
@@ -897,9 +909,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere11.pose.position = obj_pose[i].position;
             CylinderOrientation(p22, p21, cylinder_pose, cylinder_height);
             cylinder_hemisphere11.pose.orientation = cylinder_pose.orientation;
-            cylinder_hemisphere11.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere11.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere11.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere11.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere11.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere11.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere11.color.r = 0.4f;
             cylinder_hemisphere11.color.g = 0.698f;
             cylinder_hemisphere11.color.b = 1.0f;
@@ -924,9 +936,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder2.action = visualization_msgs::Marker::ADD;
             CylinderOrientation(p23, p24, cylinder_pose, cylinder_height);
             cylinder2.pose = cylinder_pose;
-            cylinder2.scale.x = 2*_Sa_perp_max_.data;   // x radius
-            cylinder2.scale.y = 2*_Sa_perp_max_.data;   // y radius
-            cylinder2.scale.z = cylinder_height;        // height
+            cylinder2.scale.x = 2*Sa_min_perp.data;    // radius
+            cylinder2.scale.y = 2*Sa_min_perp.data;    // radius
+            cylinder2.scale.z = cylinder_height;       // height
             cylinder2.color.r = 0.251f;
             cylinder2.color.g = 0.251f;
             cylinder2.color.b = 0.251f;
@@ -946,9 +958,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere22.pose.position.y = ref[1][i];
             cylinder_hemisphere22.pose.position.z = ref[2][i];
             cylinder_hemisphere22.pose.orientation = cylinder_pose.orientation;
-            cylinder_hemisphere22.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere22.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere22.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere22.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere22.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere22.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere22.color.r = 0.251f;
             cylinder_hemisphere22.color.g = 0.251f;
             cylinder_hemisphere22.color.b = 0.251f;
@@ -968,9 +980,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere21.pose.position = pstar[i].position;
             CylinderOrientation(p24, p23, cylinder_pose, cylinder_height);
             cylinder_hemisphere21.pose.orientation = cylinder_pose.orientation;
-            cylinder_hemisphere21.scale.x = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere21.scale.y = 0.001*_Sa_perp_max_.data; 
-            cylinder_hemisphere21.scale.z = 0.001*_Sa_perp_max_.data; 
+            cylinder_hemisphere21.scale.x = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere21.scale.y = 0.001*Sa_min_perp.data; 
+            cylinder_hemisphere21.scale.z = 0.001*Sa_min_perp.data; 
             cylinder_hemisphere21.color.r = 0.251f;
             cylinder_hemisphere21.color.g = 0.251f;
             cylinder_hemisphere21.color.b = 0.251f;
@@ -995,9 +1007,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder3.action = visualization_msgs::Marker::ADD;
             CylinderOrientation(p25, p26, cylinder_pose, cylinder_height);
             cylinder3.pose = cylinder_pose;
-            cylinder3.scale.x = 2*future_tubes[i].min_radius;   // x radius
-            cylinder3.scale.y = 2*future_tubes[i].min_radius;   // y radius
-            cylinder3.scale.z = cylinder_height;        // height
+            cylinder3.scale.x = 2*future_tubes[i].min_radius;   // Sa_min_perp radius
+            cylinder3.scale.y = 2*future_tubes[i].min_radius;   // Sa_min_perp radius
+            cylinder3.scale.z = cylinder_height;                // height
             cylinder3.color.r = 0.749f;
             cylinder3.color.g = 0.647f;
             cylinder3.color.b = 0.412f;
@@ -1017,9 +1029,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere32.pose.position.y = future_tubes[i].p0.y;
             cylinder_hemisphere32.pose.position.z = future_tubes[i].p0.z;
             cylinder_hemisphere32.pose.orientation = cylinder_pose.orientation;     
-            cylinder_hemisphere32.scale.x = 0.001*future_tubes[i].min_radius; 
-            cylinder_hemisphere32.scale.y = 0.001*future_tubes[i].min_radius; 
-            cylinder_hemisphere32.scale.z = 0.001*future_tubes[i].min_radius; 
+            cylinder_hemisphere32.scale.x = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
+            cylinder_hemisphere32.scale.y = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
+            cylinder_hemisphere32.scale.z = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
             cylinder_hemisphere32.color.r = 0.8f;
             cylinder_hemisphere32.color.g = 0.0f;
             cylinder_hemisphere32.color.b = 0.0f;
@@ -1041,9 +1053,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere31.pose.position.z = future_tubes[i].p1.z;
             CylinderOrientation(p24, p23, cylinder_pose, cylinder_height);
             cylinder_hemisphere31.pose.orientation = cylinder_pose.orientation;
-            cylinder_hemisphere31.scale.x = 0.001*future_tubes[i].min_radius; 
-            cylinder_hemisphere31.scale.y = 0.001*future_tubes[i].min_radius; 
-            cylinder_hemisphere31.scale.z = 0.001*future_tubes[i].min_radius; 
+            cylinder_hemisphere31.scale.x = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
+            cylinder_hemisphere31.scale.y = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
+            cylinder_hemisphere31.scale.z = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
             cylinder_hemisphere31.color.r = 0.8f;
             cylinder_hemisphere31.color.g = 0.0f;
             cylinder_hemisphere31.color.b = 0.0f;
@@ -1072,9 +1084,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder3.action = visualization_msgs::Marker::ADD;
             CylinderOrientation(p35, p36, cylinder_pose, cylinder_height);
             cylinder3.pose = cylinder_pose;
-            cylinder3.scale.x = 2*tube_min_radius.data;   // x radius
-            cylinder3.scale.y = 2*tube_min_radius.data;   // y radius
-            cylinder3.scale.z = cylinder_height;        // height
+            cylinder3.scale.x = 2*tube_min_radius.data;   // radius
+            cylinder3.scale.y = 2*tube_min_radius.data;   // radius
+            cylinder3.scale.z = cylinder_height;          // height
             cylinder3.color.r = 0.749f;
             cylinder3.color.g = 0.647f;
             cylinder3.color.b = 0.412f;
@@ -1094,9 +1106,9 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere32.pose.position.y = ref[1][i];
             cylinder_hemisphere32.pose.position.z = ref[2][i];
             cylinder_hemisphere32.pose.orientation = cylinder_pose.orientation;     
-            cylinder_hemisphere32.scale.x = 0.001*tube_min_radius.data; 
-            cylinder_hemisphere32.scale.y = 0.001*tube_min_radius.data; 
-            cylinder_hemisphere32.scale.z = 0.001*tube_min_radius.data; 
+            cylinder_hemisphere32.scale.x = 0.001*tube_min_radius.data;     // Sa_min_perp radius
+            cylinder_hemisphere32.scale.y = 0.001*tube_min_radius.data;     // Sa_min_perp radius 
+            cylinder_hemisphere32.scale.z = 0.001*tube_min_radius.data;     // Sa_min_perp radius 
             cylinder_hemisphere32.color.r = 0.749f;
             cylinder_hemisphere32.color.g = 0.647f;
             cylinder_hemisphere32.color.b = 0.412f;
@@ -1116,22 +1128,23 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             cylinder_hemisphere31.pose.position = obj_pose[i].position;
             CylinderOrientation(p36, p35, cylinder_pose, cylinder_height);
             cylinder_hemisphere31.pose.orientation = cylinder_pose.orientation;
-            cylinder_hemisphere31.scale.x = 0.001*tube_min_radius.data; 
-            cylinder_hemisphere31.scale.y = 0.001*tube_min_radius.data; 
-            cylinder_hemisphere31.scale.z = 0.001*tube_min_radius.data; 
+            cylinder_hemisphere31.scale.x = 0.001*tube_min_radius.data;     // Sa_min_perp radius 
+            cylinder_hemisphere31.scale.y = 0.001*tube_min_radius.data;     // Sa_min_perp radius 
+            cylinder_hemisphere31.scale.z = 0.001*tube_min_radius.data;     // Sa_min_perp radius 
             cylinder_hemisphere31.color.r = 0.749f;
             cylinder_hemisphere31.color.g = 0.647f;
             cylinder_hemisphere31.color.b = 0.412f;
             cylinder_hemisphere31.color.a = 0.5;
             cylinder_hemisphere31.lifetime = ros::Duration();
             all_markers.markers.push_back(cylinder_hemisphere31);
-            
 
         }
 
     }
 
     if(_DERG_strategy_id_.data == 5){
+
+        // line for minimal distance
         double norm_min;
         int ind;
         
@@ -1166,6 +1179,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         line_min_dist.color.a = 1.0;
         all_markers.markers.push_back(line_min_dist);
 
+        // sphere at desired reference pose...
         desired_ref_sphere.header.frame_id = "/common_origin";
         desired_ref_sphere.header.stamp = ros::Time::now();
         desired_ref_sphere.ns = "desired_ref_sphere";
@@ -1214,6 +1228,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
 }
 
 
+
 // | ---------------------------------- MAIN ---------------------------------- |
 
 int main(int argc, char **argv){
@@ -1229,13 +1244,14 @@ int main(int argc, char **argv){
     // Subscribers and publishers
     // ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    // create subscriber for active UAV list
+    // Subscribe
     diagnostics_subscriber_ = n.subscribe("mrs_drone_spawner/diagnostics", 1, DiagnosticsCallback);
     DERG_strategy_id_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/derg_strategy_id", 1, DERGStrategyIdCallback);
-    Sa_max_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_max", 1, SaMaxCallback);
-    Sa_perp_max_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_perp_max", 1, SaPerpMaxCallback);
+    Sa_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_max", 1, SaCallback);
+    Sa_perp_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_perp_max", 1, SaPerpCallback);
     tube_min_radius_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/tube_min_radius", 1, TubeMinRadiusCallback);
 
+    //  We wait until we receive the message for the diagnostics_subscriber_
     while(!test1){
         ros::spinOnce();
         r.sleep();
