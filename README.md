@@ -2,7 +2,7 @@
 Visualization developed by the summer 2021 BruBotics interns.
 
 <p align="center">
-  <src="https://github.com/mrs-brubotics/visualization_brubotics/blob/main/.fig/derg5.png">
+  <img width="485" height="424" src="https://github.com/mrs-brubotics/visualization_brubotics/blob/main/.fig/derg5.png">
 </p>
 
 ![](https://github.com/mrs-brubotics/visualization_brubotics/blob/main/.fig/derg5.png)
