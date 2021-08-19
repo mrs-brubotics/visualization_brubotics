@@ -297,7 +297,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
     for(int i=0; i<number_uav; i++){
 
         // small sphere at current pose
-
         InitMarker(marker,"current_pose_sphere",i,2,0.6f,0.6f,0.6f,0.15);
         marker.pose = obj_pose[i];
         marker.scale.x = 2*Ra;     // radius
@@ -305,8 +304,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         marker.scale.z = 2*Ra;     // radius
         all_markers.markers.push_back(marker);
 
-        // small sphere at applied ref pose
-        
+        // small sphere at applied ref pose      
         InitMarker(marker,"applied_ref_sphere",i,2,0.6f,0.6f,0.6f,0.15);
         marker.pose.position.x = ref[0][i];
         marker.pose.position.y = ref[1][i];
@@ -322,9 +320,8 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         p.z = obj_pose[i].position.z;
         red_line.points.push_back(p);
         
-
+        // red line betweetn both current uav pose
         if(i==(number_uav-1)){
-        // // red line betweetn both current uav pose
         InitMarker(red_line,"red_line",0,4,1.0f,0.0f,0.0f,1.0);
         red_line.scale.x = 0.05; // width
         all_markers.markers.push_back(red_line);
@@ -380,11 +377,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         }
 
             //Strategy 1 part
-        if(_DERG_strategy_id_.data == 1 || _DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 3){  
+        if(_DERG_strategy_id_.data == 1 || _DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){  
 
             // Blue tube
+
             // cylinder1 between point link star and applied ref
-            
             p11.x = pstar[i].position.x;
             p11.y = pstar[i].position.y;
             p11.z = pstar[i].position.z;
@@ -404,9 +401,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             marker.scale.z = 0.001*cylinder_height;    // height
             all_markers.markers.push_back(marker);
 
-            // Blue tube
             // hemisphere 1 at cylinder ends
-
             if(_DERG_strategy_id_.data == 1)
                 InitMarker(marker, "hemisphere1_strategy_1", i, 10, 0.4f, 0.698f, 1.0f, 0.075, "HemisphereShell_10mm");
             
@@ -423,7 +418,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             marker.scale.z = 0.001 * Sa_min_perp.data; 
             all_markers.markers.push_back(marker);
 
-            // Blue tube
             // hemisphere 2 at cylinder ends
             if(_DERG_strategy_id_.data == 1)
                 InitMarker(marker, "hemisphere2_strategy_1", i, 10, 0.4f, 0.698f, 1.0f, 0.075, "HemisphereShell_10mm");
@@ -446,6 +440,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
 
             // Blue tube
+
             // cylinder between current pose and applied ref
             p21.x = obj_pose[i].position.x;
             p21.y = obj_pose[i].position.y;
@@ -462,7 +457,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
 
-            // Blue tube
             // hemisphere 1 at cylinder ends
             InitMarker(marker, "hemisphere1_strategy_2", i, 10, 0.4f, 0.698f, 1.0f, 0.075, "HemisphereShell_10mm");
             marker.pose.position.x = ref[0][i];
@@ -474,7 +468,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             marker.scale.z = 0.001*Sa_min_perp.data; 
             all_markers.markers.push_back(marker);
 
-            // Blue tube
             // hemisphere 1 at cylinder ends
             InitMarker(marker, "hemisphere2_strategy_2", i, 10, 0.4f, 0.698f, 1.0f, 0.075, "HemisphereShell_10mm");
             CylinderOrientation(p22, p21, cylinder_pose, cylinder_height);
@@ -491,8 +484,8 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         if(_DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 5){
 
             // Orange tube
+
             // cylinder3 between point link star and applied ref
-            
             p31.x = obj_pose[i].position.x;
             p31.y = obj_pose[i].position.y;
             p31.z = obj_pose[i].position.z;
@@ -507,7 +500,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             marker.scale.z = 0.001*cylinder_height;                // height
             all_markers.markers.push_back(marker);
 
-            // Orange tube
             // hemisphere1 at cylinder ends
             InitMarker(marker, "hemisphere1_strategy_3", i, 10, 0.749f, 0.647f, 0.412f, 0.25, "HemisphereShell_10mm");
             marker.pose.position.x = ref[0][i];
@@ -519,7 +511,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             marker.scale.z = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
             all_markers.markers.push_back(marker);
 
-            // Orange tube
             // hemisphere2 at cylinder ends
             InitMarker(marker, "hemisphere2_strategy_3", i, 10, 0.749f, 0.647f, 0.412f, 0.25, "HemisphereShell_10mm");
             marker.pose.position = obj_pose[i].position;
@@ -536,6 +527,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         if(_DERG_strategy_id_.data == 4){
             
             // Orange tube
+
             // cylinder3 between point link star and applied ref
             p41.x = future_tubes[i].p1.x;
             p41.y = future_tubes[i].p1.y;
@@ -551,7 +543,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             marker.scale.z = 0.001*cylinder_height;                // height
             all_markers.markers.push_back(marker);
 
-            // Orange tube
             // Red hemisphere1 at cylinder ends
             InitMarker(marker, "hemisphere1_strategy_4", i, 10, 0.8f, 0.0f, 0.0f, 0.25, "HemisphereShell_10mm");
             marker.pose.position.x = future_tubes[i].p0.x;
@@ -563,7 +554,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             marker.scale.z = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
             all_markers.markers.push_back(marker);
 
-            // Orange tube
             // Red hemisphere2 at cylinder ends
             InitMarker(marker, "hemisphere2_strategy_4", i, 10, 0.8f, 0.0f, 0.0f, 0.25, "HemisphereShell_10mm");
             marker.pose.position.x = future_tubes[i].p1.x;
@@ -636,9 +626,6 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         all_markers.markers.push_back(marker);
 
         }
-
-
-    
 
     marker_publisher_.publish(all_markers);
 
