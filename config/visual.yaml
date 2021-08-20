@@ -1,0 +1,86 @@
+
+NUMBER_OF_POINTS_TRAJECTORY: 50  #set the number of point for the predicted trajectory ( >0 ! )
+
+all_strategies:
+  current_pose_sphere:
+    r: 0.6
+    g: 0.6
+    b: 0.6
+    alpha: 0.1
+  applied_ref_sphere:
+    r: 0.6
+    g: 0.6
+    b: 0.6
+    alpha: 0.1
+  shortest_distance_lines:
+    r: 0.0
+    g: 0.0
+    b: 0.0
+    alpha: 1.0
+  trajectory:
+    r: 1.0
+    g: 0.0
+    b: 1.0
+    alpha: 1.0
+  red_lines:
+    r: 1.0
+    g: 0.0
+    b: 0.0
+    alpha: 1.0
+  desired_ref_sphere:
+    r: 0.6
+    g: 0.6
+    b: 0.6
+    alpha: 0.1
+
+strategy_0:
+  error_sphere:
+    r: 0.8
+    g: 0.898
+    b: 1.0
+    alpha: 0.1
+
+strategy_1_tube:
+  strategy_1:
+    cylinder_strategy_1:
+      r: 0.4
+      g: 0.698
+      b: 1.0
+      alpha: 0.075
+  strategy_2_3_4:
+    cylinder_strategy_1:
+      r: 0.251
+      g: 0.251
+      b: 0.251
+      alpha: 0.05
+
+strategy_2_tube:
+  cylinder_strategy_2:
+    r: 0.4
+    g: 0.698
+    b: 1.0
+    alpha: 0.075
+
+strategy_3_tube:
+  cylinder_strategy_3:
+    r: 0.749
+    g: 0.647
+    b: 0.412
+    alpha: 0.25
+
+strategy_4_tube:
+  cylinder_strategy_4:
+    r: 0.749
+    g: 0.647
+    b: 0.412
+    alpha: 0.25
+  hemisphere1_strategy_4:
+    r: 0.8
+    g: 0.0
+    b: 0.0
+    alpha: 0.25
+  hemisphere2_strategy_4:
+    r: 0.8
+    g: 0.0
+    b: 0.0
+    alpha: 0.25

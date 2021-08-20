@@ -10,6 +10,8 @@
 #include <std_msgs/Float32.h>
 #include <trackers_brubotics/FutureTrajectoryTube.h> // custom ROS message
 #include <Eigen/Dense>
+#include <mrs_lib/param_loader.h>
+
 
 #include <ros/ros.h>
 
@@ -17,7 +19,6 @@
 #include <string>
 
 #define MAX_UAV_NUMBER 10           // Maximum number of UAVs for the visualization, used to initialized vectors and arrays
-#define MAX_POINTS_TRAJECTORY 50    // Maximum number of points used to display the trajectory
 
 
 // | -------------------------------- Parameters -------------------------------- |
@@ -30,6 +31,8 @@ double Ra = 0.35;   // drone's radius
 int number_of_uav;
 std::array<std::array<double, 2>, 3> uav_applied_ref;
 std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories;
+int number_of_point_traj;
+float r,g,b,alpha;
 
 
 // | ------------------------ Publishers and subscribers ----------------------- |
@@ -112,8 +115,8 @@ void CalculNorm(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, 
 void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind);
 void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, const double& norm);
 void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const double& radius, const int& number_uav);
-void Trajectory(visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type);
-void RedLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::vector<geometry_msgs::Pose>& obj_pose, const int& number_uav, const double& radius);
+void Trajectory(visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type, const float& r, const float& g, const float& b, const float& alpha);
+void RedLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::vector<geometry_msgs::Pose>& obj_pose, const int& number_uav, const double& radius, const float& r, const float& g, const float& b, const float& alpha);
 void InitMarker(visualization_msgs::Marker& marker, const std::string name, const int id, const int type, const float r, const float g, const float b, const float a, const std::string &mesh);
 void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref, 
                     const std::vector<geometry_msgs::Pose>& pstar, 
@@ -268,7 +271,7 @@ void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> 
             ptest2.x = point[j][0][uav2];
             ptest2.y = point[j][1][uav2];
             ptest2.z = point[j][2][uav2];
-            ROS_INFO_STREAM("p1 : " << ptest1 << " p2 : " << ptest2);
+            //ROS_INFO_STREAM("p1 : " << ptest1 << " p2 : " << ptest2);
             CalculNorm(ptest1, ptest2, norm);
 
             if(norm < norm_min){
@@ -308,6 +311,7 @@ void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualizati
     // line for minimal distance
     double norm_min;
     int ind;
+    ros::NodeHandle nh3;
     geometry_msgs::Point p1, p2, p_new1, p_new2;
 
     for(int i=0; i<(number_uav-1); i++){
@@ -323,7 +327,11 @@ void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualizati
             p2.x = point[ind][0][j];
             p2.y = point[ind][1][j];
             p2.z = point[ind][2][j];
-            InitMarker(marker, "minimal_distance", i*100+j, 4, 0.0f, 0.0f, 0.0f, 1.0);
+            nh3.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/r", r);
+            nh3.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/g", g);
+            nh3.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/b", b);
+            nh3.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/alpha", alpha);
+            InitMarker(marker, "minimal_distance", i*100+j, 4, r, g, b, alpha);
             // calculate the coordinates of the desired ref position translated by radius Ra
             GiveTranslatedPoint(p1,p2,p_new1,radius,norm_min);
             GiveTranslatedPoint(p2,p1,p_new2,radius,norm_min);
@@ -336,7 +344,11 @@ void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualizati
             markers.markers.push_back(marker);
 
             // spheres at desired reference pose
-            InitMarker(marker, "desired_ref_sphere", i*100+j, 2, 0.6f, 0.6f, 0.6f, 0.15);
+            nh3.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/r", r);
+            nh3.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/g", g);
+            nh3.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/b", b);
+            nh3.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/alpha", alpha);
+            InitMarker(marker, "desired_ref_sphere", i*100+j, 2, r, g, b, alpha);
             marker.scale.x = 2*Ra; 
             marker.scale.y = 2*Ra; 
             marker.scale.z = 2*Ra; 
@@ -350,22 +362,22 @@ void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualizati
     } 
 }
 
-void Trajectory(visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type){
+void Trajectory(visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type, const float& r, const float& g, const float& b, const float& alpha){
     
     geometry_msgs::Point p_traj;
 
     if(type==4){
-        InitMarker(marker,"trajectory line strip", ind_uav,type,1.0f,0.0f,1.0f,1.0);
+        InitMarker(marker,"trajectory line strip", ind_uav,type, r, g, b, alpha);
         marker.scale.x = 0.05;    // width of the line strip
     }
     if(type==7){
-        InitMarker(marker,"trajectory sphere list", ind_uav,type,1.0f,0.0f,1.0f,1.0);
+        InitMarker(marker,"trajectory sphere list", ind_uav,type, r, g, b, alpha);
         marker.scale.x = 0.1;    // radius of the spheres
         marker.scale.y = 0.1;    // radius
         marker.scale.z = 0.1;    // radius
     }
-
-    step = predicted_traj.points.size() / MAX_POINTS_TRAJECTORY;
+    
+    step = predicted_traj.points.size() / number_of_point_traj;
 
     for(int j=0; j<(predicted_traj.points.size() - step); j+=step){
         p_traj.x = predicted_trajectories[j][0][ind_uav];
@@ -382,13 +394,13 @@ void Trajectory(visualization_msgs::Marker& marker, int ind_uav, const std::arra
     //ROS_INFO_STREAM("number of points: " << marker.points.size() << ", step: " << step << ", size: " << predicted_traj.points.size());
 }
 
-void RedLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::vector<geometry_msgs::Pose>& obj_pose, const int& number_uav, const double& radius){
+void RedLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::vector<geometry_msgs::Pose>& obj_pose, const int& number_uav, const double& radius, const float& r, const float& g, const float& b, const float& alpha){
     geometry_msgs::Point p1, p2, p_new;
     double norm;
     for(int i=0; i<(number_uav-1); i++){
         
         for(int j=i+1; j<number_uav; j++){
-            InitMarker(marker,"red_line",i*100+j,4,1.0f,0.0f,0.0f,1.0);    
+            InitMarker(marker,"red_line",i*100+j,4,r, g, b, alpha);    
             marker.scale.x = 0.05; // width
 
             p1.x = obj_pose[i].position.x;
@@ -429,19 +441,30 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
     Point p31, p32;
     Point p41, p42;
 
+    ros::NodeHandle nh2;
+    
+
     // loop for each drone
     for(int i=0; i<number_uav; i++){
 
         // small sphere at current pose
-        InitMarker(marker,"current_pose_sphere",i,2,0.6f,0.6f,0.6f,0.15);
+        nh2.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/r", r);
+        nh2.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/g", g);
+        nh2.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/b", b);
+        nh2.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/alpha", alpha);
+        InitMarker(marker,"current_pose_sphere", i, 2,r, g, b, alpha);
         marker.pose = obj_pose[i];
         marker.scale.x = 2*Ra;     // radius
         marker.scale.y = 2*Ra;     // radius
         marker.scale.z = 2*Ra;     // radius
         all_markers.markers.push_back(marker);
 
-        // small sphere at applied ref pose      
-        InitMarker(marker,"applied_ref_sphere",i,2,0.6f,0.6f,0.6f,0.15);
+        // small sphere at applied ref pose
+        nh2.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/r", r);
+        nh2.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/g", g);
+        nh2.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/b", b);
+        nh2.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/alpha", alpha);      
+        InitMarker(marker, "applied_ref_sphere", i, 2, r, g, b, alpha);
         marker.pose.position.x = ref[0][i];
         marker.pose.position.y = ref[1][i];
         marker.pose.position.z = ref[2][i];
@@ -451,19 +474,27 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         all_markers.markers.push_back(marker);
 
         // Predicted trajectory sphere list
-        Trajectory(marker, i, predicted_trajectories, 7);
+        nh2.getParam("/visualization_brubotics/all_strategies/trajectory/r", r);
+        nh2.getParam("/visualization_brubotics/all_strategies/trajectory/g", g);
+        nh2.getParam("/visualization_brubotics/all_strategies/trajectory/b", b);
+        nh2.getParam("/visualization_brubotics/all_strategies/trajectory/alpha", alpha);
+        Trajectory(marker, i, predicted_trajectories, 7, r, g, b, alpha);
         all_markers.markers.push_back(marker);
         marker.points.clear();
         
         // Predicted trajectory line strip
-        Trajectory(marker, i, predicted_trajectories, 4);
+        Trajectory(marker, i, predicted_trajectories, 4, r, g, b, alpha);
         all_markers.markers.push_back(marker);
         marker.points.clear();
 
         if(_DERG_strategy_id_.data == 0){
 
             // error sphere at applied ref pose
-            InitMarker(marker, "error_sphere", i, 2, 0.8f, 0.898f, 1.0f, 0.1);
+            nh2.getParam("/visualization_brubotics/strategy_0/error_sphere/r", r);
+            nh2.getParam("/visualization_brubotics/strategy_0/error_sphere/g", g);
+            nh2.getParam("/visualization_brubotics/strategy_0/error_sphere/b", b);
+            nh2.getParam("/visualization_brubotics/strategy_0/error_sphere/alpha", alpha);
+            InitMarker(marker, "error_sphere", i, 2, r, g, b, alpha);
             marker.pose.position.x = ref[0][i];
             marker.pose.position.y = ref[1][i];
             marker.pose.position.z = ref[2][i];
@@ -485,12 +516,20 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             p12.x = ref[0][i];
             p12.y = ref[1][i];
             p12.z = ref[2][i];
-            if(_DERG_strategy_id_.data == 1)
-                InitMarker(marker, "cylinder_strategy_1", i, 10, 0.4f, 0.698f, 1.0f, 0.075, "CylinderShell_10mm");
-            
-            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4)
-                InitMarker(marker, "cylinder_strategy_1", i, 10, 0.251f, 0.251f, 0.251f, 0.05, "CylinderShell_10mm");
-            
+            if(_DERG_strategy_id_.data == 1){
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/r", r);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/g", g);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/b", b);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/alpha", alpha);
+                InitMarker(marker, "cylinder_strategy_1", i, 10, r, g, b, alpha, "CylinderShell_10mm");
+            }
+            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/r", r);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/g", g);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/b", b);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/alpha", alpha);
+                InitMarker(marker, "cylinder_strategy_1", i, 10, r, g, b, alpha, "CylinderShell_10mm");
+            }
             CylinderOrientation(p11, p12, cylinder_pose, cylinder_height);
             marker.pose = cylinder_pose;
             marker.scale.x = 0.001*2*Sa_min_perp.data;    // radius
@@ -499,12 +538,20 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // hemisphere 1 at cylinder ends
-            if(_DERG_strategy_id_.data == 1)
-                InitMarker(marker, "hemisphere1_strategy_1", i, 10, 0.4f, 0.698f, 1.0f, 0.075, "HemisphereShell_10mm");
-            
-            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4)
-                InitMarker(marker, "hemisphere1_strategy_1", i, 10, 0.251f, 0.251f, 0.251f, 0.05, "HemisphereShell_10mm");
-            
+            if(_DERG_strategy_id_.data == 1){
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/r", r);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/g", g);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/b", b);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/alpha", alpha);
+                InitMarker(marker, "hemisphere1_strategy_1", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+            }
+            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/r", r);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/g", g);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/b", b);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/alpha", alpha);
+                InitMarker(marker, "hemisphere1_strategy_1", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+            }
             marker.pose.position.x = ref[0][i];
             marker.pose.position.y = ref[1][i];
             marker.pose.position.z = ref[2][i];
@@ -516,12 +563,20 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // hemisphere 2 at cylinder ends
-            if(_DERG_strategy_id_.data == 1)
-                InitMarker(marker, "hemisphere2_strategy_1", i, 10, 0.4f, 0.698f, 1.0f, 0.075, "HemisphereShell_10mm");
-            
-            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3)
-                InitMarker(marker, "hemisphere2_strategy_1", i, 10, 0.251f, 0.251f, 0.251f, 0.05, "HemisphereShell_10mm");
-            
+            if(_DERG_strategy_id_.data == 1){
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/r", r);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/g", g);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/b", b);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/alpha", alpha);
+                InitMarker(marker, "hemisphere2_strategy_1", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+            }
+            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3){
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/r", r);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/g", g);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/b", b);
+                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/alpha", alpha);
+                InitMarker(marker, "hemisphere2_strategy_1", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+            }
             marker.pose.position = pstar[i].position;
             CylinderOrientation(p12, p11, cylinder_pose, cylinder_height);
             marker.pose.orientation = cylinder_pose.orientation;
@@ -544,7 +599,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             p22.x = ref[0][i];
             p22.y = ref[1][i];
             p22.z = ref[2][i];
-            InitMarker(marker, "cylinder_strategy_2", i, 10, 0.4f, 0.698f, 1.0f, 0.075, "CylinderShell_10mm");
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/r", r);
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/g", g);
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/b", b);
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/alpha", alpha);
+            InitMarker(marker, "cylinder_strategy_2", i, 10, r, g, b, alpha, "CylinderShell_10mm");
             CylinderOrientation(p21, p22, cylinder_pose, cylinder_height);
             marker.pose = cylinder_pose;
             marker.scale.x = 0.001*2*Sa_min_perp.data;    // radius
@@ -554,7 +613,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
 
 
             // hemisphere 1 at cylinder ends
-            InitMarker(marker, "hemisphere1_strategy_2", i, 10, 0.4f, 0.698f, 1.0f, 0.075, "HemisphereShell_10mm");
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/r", r);
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/g", g);
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/b", b);
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/alpha", alpha);
+            InitMarker(marker, "hemisphere1_strategy_2", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
             marker.pose.position.x = ref[0][i];
             marker.pose.position.y = ref[1][i];
             marker.pose.position.z = ref[2][i];
@@ -565,7 +628,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // hemisphere 1 at cylinder ends
-            InitMarker(marker, "hemisphere2_strategy_2", i, 10, 0.4f, 0.698f, 1.0f, 0.075, "HemisphereShell_10mm");
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/r", r);
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/g", g);
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/b", b);
+            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/alpha", alpha);
+            InitMarker(marker, "hemisphere2_strategy_2", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
             CylinderOrientation(p22, p21, cylinder_pose, cylinder_height);
             marker.pose.position = obj_pose[i].position;
             marker.pose.orientation = cylinder_pose.orientation;        
@@ -587,7 +654,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             p32.x = ref[0][i];
             p32.y = ref[1][i];
             p32.z = ref[2][i];
-            InitMarker(marker, "cylinder_strategy_3", i, 10, 0.749f, 0.647f, 0.412f, 0.25, "CylinderShell_10mm");
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/r", r);
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/g", g);
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/b", b);
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/alpha", alpha);
+            InitMarker(marker, "cylinder_strategy_3", i, 10, r, g, b, alpha, "CylinderShell_10mm");
             CylinderOrientation(p31, p32, cylinder_pose, cylinder_height);
             marker.pose = cylinder_pose;
             marker.scale.x = 0.001*2*future_tubes[i].min_radius;   // radius
@@ -596,7 +667,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // hemisphere1 at cylinder ends
-            InitMarker(marker, "hemisphere1_strategy_3", i, 10, 0.749f, 0.647f, 0.412f, 0.25, "HemisphereShell_10mm");
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/r", r);
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/g", g);
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/b", b);
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/alpha", alpha);
+            InitMarker(marker, "hemisphere1_strategy_3", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
             marker.pose.position.x = ref[0][i];
             marker.pose.position.y = ref[1][i];
             marker.pose.position.z = ref[2][i];
@@ -607,7 +682,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // hemisphere2 at cylinder ends
-            InitMarker(marker, "hemisphere2_strategy_3", i, 10, 0.749f, 0.647f, 0.412f, 0.25, "HemisphereShell_10mm");
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/r", r);
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/g", g);
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/b", b);
+            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/alpha", alpha);
+            InitMarker(marker, "hemisphere2_strategy_3", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
             marker.pose.position = obj_pose[i].position;
             CylinderOrientation(p32, p31, cylinder_pose, cylinder_height);
             marker.pose.orientation = cylinder_pose.orientation;
@@ -629,7 +708,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             p42.x = future_tubes[i].p0.x;
             p42.y = future_tubes[i].p0.y;
             p42.z = future_tubes[i].p0.z;
-            InitMarker(marker, "cylinder_strategy_4", i, 10, 0.749f, 0.647f, 0.412f, 0.25, "CylinderShell_10mm");
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/r", r);
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/g", g);
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/b", b);
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/alpha", alpha);
+            InitMarker(marker, "cylinder_strategy_4", i, 10, r, g, b, alpha, "CylinderShell_10mm");
             CylinderOrientation(p41, p42, cylinder_pose, cylinder_height);
             marker.pose = cylinder_pose;
             marker.scale.x = 0.001*2*future_tubes[i].min_radius;   // Sa_min_perp radius
@@ -638,7 +721,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // Red hemisphere1 at cylinder ends
-            InitMarker(marker, "hemisphere1_strategy_4", i, 10, 0.8f, 0.0f, 0.0f, 0.25, "HemisphereShell_10mm");
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/r", r);
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/g", g);
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/b", b);
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/alpha", alpha);
+            InitMarker(marker, "hemisphere1_strategy_4", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
             marker.pose.position.x = future_tubes[i].p0.x;
             marker.pose.position.y = future_tubes[i].p0.y;
             marker.pose.position.z = future_tubes[i].p0.z;
@@ -649,7 +736,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // Red hemisphere2 at cylinder ends
-            InitMarker(marker, "hemisphere2_strategy_4", i, 10, 0.8f, 0.0f, 0.0f, 0.25, "HemisphereShell_10mm");
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/r", r);
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/g", g);
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/b", b);
+            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/alpha", alpha);
+            InitMarker(marker, "hemisphere2_strategy_4", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
             marker.pose.position.x = future_tubes[i].p1.x;
             marker.pose.position.y = future_tubes[i].p1.y;
             marker.pose.position.z = future_tubes[i].p1.z;
@@ -669,9 +760,13 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
     }
 
     // red lines between uavs current position
-    RedLines(all_markers, marker, obj_pose, number_uav, Ra);
+    nh2.getParam("/visualization_brubotics/all_strategies/red_lines/r", r);
+    nh2.getParam("/visualization_brubotics/all_strategies/red_lines/g", g);
+    nh2.getParam("/visualization_brubotics/all_strategies/red_lines/b", b);
+    nh2.getParam("/visualization_brubotics/all_strategies/red_lines/alpha", alpha);
+    RedLines(all_markers, marker, obj_pose, number_uav, Ra, r, g, b, alpha);
 
-    //Shortest distance line (which is initialy for strategy 5)
+    // Shortest distance line (which is initialy for strategy 5)
     ShortestDistanceLines(all_markers, marker, predicted_trajectories, Ra, number_uav);
     
     marker_publisher_.publish(all_markers);
@@ -692,6 +787,8 @@ int main(int argc, char **argv){
     ros::NodeHandle n;
     ros::Rate r(30);
 
+    ros::NodeHandle nh;
+    
     // Subscribers and publishers
     // ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -710,6 +807,8 @@ int main(int argc, char **argv){
     }
 
     number_of_uav = diagnostics.active_vehicles.size();
+
+    nh.getParam("/visualization_brubotics/NUMBER_OF_POINTS_TRAJECTORY", number_of_point_traj);
 
     // create subscribers
     std::vector<boost::function<void (const geometry_msgs::PoseArray::ConstPtr&)>> f1;

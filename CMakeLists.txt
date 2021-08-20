@@ -111,6 +111,7 @@ find_package(Eigen3 REQUIRED)
 catkin_package(
   CATKIN_DEPENDS 
     mrs_msgs 
+    mrs_lib
     geometry_msgs
     Eigen
     std_msgs

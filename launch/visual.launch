@@ -3,4 +3,8 @@
 
     <node pkg="visualization_brubotics" type="visual" name="visual" output="screen"/>
 
+    <group ns="visualization_brubotics">
+        <rosparam file="$(find visualization_brubotics)/config/visual.yaml" />
+    </group>
+
 </launch>

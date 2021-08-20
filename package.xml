@@ -51,6 +51,7 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <depend>mrs_msgs</depend>
+  <depend>mrs_lib</depend>
   <depend>geometry_msgs</depend>
   <depend>Eigen</depend>
   <depend>std_msgs</depend>
