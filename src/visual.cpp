@@ -33,6 +33,20 @@ std::array<std::array<double, 2>, 3> uav_applied_ref;
 std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories;
 int number_of_point_traj;
 float r,g,b,alpha;
+std::vector<float> color_current_pose_sphere(4);
+std::vector<float> color_applied_ref_sphere(4);
+std::vector<float> color_shortest_distance_lines(4);
+std::vector<float> color_trajectory(4);
+std::vector<float> color_red_lines(4);
+std::vector<float> color_desired_ref_sphere(4);
+std::vector<float> color_error_sphere(4);
+std::vector<float> color_strategy_1_cylinder_strategy_1(4);
+std::vector<float> color_strategy_2_3_4_cylinder_strategy_1(4);
+std::vector<float> color_cylinder_strategy_2(4);
+std::vector<float> color_cylinder_strategy_3(4);
+std::vector<float> color_cylinder_strategy_4(4);
+std::vector<float> color_hemisphere1_strategy_4(4);
+std::vector<float> color_hemisphere2_strategy_4(4);
 
 
 // | ------------------------ Publishers and subscribers ----------------------- |
@@ -311,7 +325,6 @@ void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualizati
     // line for minimal distance
     double norm_min;
     int ind;
-    ros::NodeHandle nh3;
     geometry_msgs::Point p1, p2, p_new1, p_new2;
 
     for(int i=0; i<(number_uav-1); i++){
@@ -327,11 +340,8 @@ void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualizati
             p2.x = point[ind][0][j];
             p2.y = point[ind][1][j];
             p2.z = point[ind][2][j];
-            nh3.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/r", r);
-            nh3.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/g", g);
-            nh3.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/b", b);
-            nh3.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/alpha", alpha);
-            InitMarker(marker, "minimal_distance", i*100+j, 4, r, g, b, alpha);
+            
+            InitMarker(marker, "minimal_distance", i*100+j, 4, color_shortest_distance_lines[0], color_shortest_distance_lines[1], color_shortest_distance_lines[2], color_shortest_distance_lines[3]);
             // calculate the coordinates of the desired ref position translated by radius Ra
             GiveTranslatedPoint(p1,p2,p_new1,radius,norm_min);
             GiveTranslatedPoint(p2,p1,p_new2,radius,norm_min);
@@ -344,11 +354,7 @@ void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualizati
             markers.markers.push_back(marker);
 
             // spheres at desired reference pose
-            nh3.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/r", r);
-            nh3.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/g", g);
-            nh3.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/b", b);
-            nh3.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/alpha", alpha);
-            InitMarker(marker, "desired_ref_sphere", i*100+j, 2, r, g, b, alpha);
+            InitMarker(marker, "desired_ref_sphere", i*100+j, 2, color_desired_ref_sphere[0], color_desired_ref_sphere[1], color_desired_ref_sphere[2], color_desired_ref_sphere[3]);
             marker.scale.x = 2*Ra; 
             marker.scale.y = 2*Ra; 
             marker.scale.z = 2*Ra; 
@@ -440,31 +446,21 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
     Point p21, p22;
     Point p31, p32;
     Point p41, p42;
-
-    ros::NodeHandle nh2;
     
 
     // loop for each drone
     for(int i=0; i<number_uav; i++){
 
         // small sphere at current pose
-        nh2.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/r", r);
-        nh2.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/g", g);
-        nh2.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/b", b);
-        nh2.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/alpha", alpha);
-        InitMarker(marker,"current_pose_sphere", i, 2,r, g, b, alpha);
+        InitMarker(marker,"current_pose_sphere", i, 2, color_current_pose_sphere[0], color_current_pose_sphere[1], color_current_pose_sphere[2], color_current_pose_sphere[3]);
         marker.pose = obj_pose[i];
         marker.scale.x = 2*Ra;     // radius
         marker.scale.y = 2*Ra;     // radius
         marker.scale.z = 2*Ra;     // radius
         all_markers.markers.push_back(marker);
 
-        // small sphere at applied ref pose
-        nh2.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/r", r);
-        nh2.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/g", g);
-        nh2.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/b", b);
-        nh2.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/alpha", alpha);      
-        InitMarker(marker, "applied_ref_sphere", i, 2, r, g, b, alpha);
+        // small sphere at applied ref pose      
+        InitMarker(marker, "applied_ref_sphere", i, 2, color_applied_ref_sphere[0], color_applied_ref_sphere[1], color_applied_ref_sphere[2], color_applied_ref_sphere[3]);
         marker.pose.position.x = ref[0][i];
         marker.pose.position.y = ref[1][i];
         marker.pose.position.z = ref[2][i];
@@ -474,27 +470,19 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         all_markers.markers.push_back(marker);
 
         // Predicted trajectory sphere list
-        nh2.getParam("/visualization_brubotics/all_strategies/trajectory/r", r);
-        nh2.getParam("/visualization_brubotics/all_strategies/trajectory/g", g);
-        nh2.getParam("/visualization_brubotics/all_strategies/trajectory/b", b);
-        nh2.getParam("/visualization_brubotics/all_strategies/trajectory/alpha", alpha);
-        Trajectory(marker, i, predicted_trajectories, 7, r, g, b, alpha);
+        Trajectory(marker, i, predicted_trajectories, 7, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
         all_markers.markers.push_back(marker);
         marker.points.clear();
         
         // Predicted trajectory line strip
-        Trajectory(marker, i, predicted_trajectories, 4, r, g, b, alpha);
+        Trajectory(marker, i, predicted_trajectories, 4, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
         all_markers.markers.push_back(marker);
         marker.points.clear();
 
         if(_DERG_strategy_id_.data == 0){
 
             // error sphere at applied ref pose
-            nh2.getParam("/visualization_brubotics/strategy_0/error_sphere/r", r);
-            nh2.getParam("/visualization_brubotics/strategy_0/error_sphere/g", g);
-            nh2.getParam("/visualization_brubotics/strategy_0/error_sphere/b", b);
-            nh2.getParam("/visualization_brubotics/strategy_0/error_sphere/alpha", alpha);
-            InitMarker(marker, "error_sphere", i, 2, r, g, b, alpha);
+            InitMarker(marker, "error_sphere", i, 2, color_error_sphere[0], color_error_sphere[1], color_error_sphere[2], color_error_sphere[3]);
             marker.pose.position.x = ref[0][i];
             marker.pose.position.y = ref[1][i];
             marker.pose.position.z = ref[2][i];
@@ -517,18 +505,10 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             p12.y = ref[1][i];
             p12.z = ref[2][i];
             if(_DERG_strategy_id_.data == 1){
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/r", r);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/g", g);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/b", b);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/alpha", alpha);
-                InitMarker(marker, "cylinder_strategy_1", i, 10, r, g, b, alpha, "CylinderShell_10mm");
+                InitMarker(marker, "cylinder_strategy_1", i, 10, color_strategy_1_cylinder_strategy_1[0], color_strategy_1_cylinder_strategy_1[1], color_strategy_1_cylinder_strategy_1[2], color_strategy_1_cylinder_strategy_1[3], "CylinderShell_10mm");
             }
             if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/r", r);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/g", g);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/b", b);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/alpha", alpha);
-                InitMarker(marker, "cylinder_strategy_1", i, 10, r, g, b, alpha, "CylinderShell_10mm");
+                InitMarker(marker, "cylinder_strategy_1", i, 10, color_strategy_2_3_4_cylinder_strategy_1[0], color_strategy_2_3_4_cylinder_strategy_1[1], color_strategy_2_3_4_cylinder_strategy_1[2], color_strategy_2_3_4_cylinder_strategy_1[3], "CylinderShell_10mm");
             }
             CylinderOrientation(p11, p12, cylinder_pose, cylinder_height);
             marker.pose = cylinder_pose;
@@ -539,18 +519,10 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
 
             // hemisphere 1 at cylinder ends
             if(_DERG_strategy_id_.data == 1){
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/r", r);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/g", g);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/b", b);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/alpha", alpha);
-                InitMarker(marker, "hemisphere1_strategy_1", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+                InitMarker(marker, "hemisphere1_strategy_1", i, 10, color_strategy_1_cylinder_strategy_1[0], color_strategy_1_cylinder_strategy_1[1], color_strategy_1_cylinder_strategy_1[2], color_strategy_1_cylinder_strategy_1[3], "HemisphereShell_10mm");
             }
             if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/r", r);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/g", g);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/b", b);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/alpha", alpha);
-                InitMarker(marker, "hemisphere1_strategy_1", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+                InitMarker(marker, "hemisphere1_strategy_1", i, 10, color_strategy_2_3_4_cylinder_strategy_1[0], color_strategy_2_3_4_cylinder_strategy_1[1], color_strategy_2_3_4_cylinder_strategy_1[2], color_strategy_2_3_4_cylinder_strategy_1[3], "HemisphereShell_10mm");
             }
             marker.pose.position.x = ref[0][i];
             marker.pose.position.y = ref[1][i];
@@ -564,18 +536,10 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
 
             // hemisphere 2 at cylinder ends
             if(_DERG_strategy_id_.data == 1){
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/r", r);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/g", g);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/b", b);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/alpha", alpha);
-                InitMarker(marker, "hemisphere2_strategy_1", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+                InitMarker(marker, "hemisphere2_strategy_1", i, 10, color_strategy_1_cylinder_strategy_1[0], color_strategy_1_cylinder_strategy_1[1], color_strategy_1_cylinder_strategy_1[2], color_strategy_1_cylinder_strategy_1[3], "HemisphereShell_10mm");
             }
-            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3){
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/r", r);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/g", g);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/b", b);
-                nh2.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/alpha", alpha);
-                InitMarker(marker, "hemisphere2_strategy_1", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
+                InitMarker(marker, "hemisphere2_strategy_1", i, 10, color_strategy_2_3_4_cylinder_strategy_1[0], color_strategy_2_3_4_cylinder_strategy_1[1], color_strategy_2_3_4_cylinder_strategy_1[2], color_strategy_2_3_4_cylinder_strategy_1[3], "HemisphereShell_10mm");
             }
             marker.pose.position = pstar[i].position;
             CylinderOrientation(p12, p11, cylinder_pose, cylinder_height);
@@ -599,11 +563,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             p22.x = ref[0][i];
             p22.y = ref[1][i];
             p22.z = ref[2][i];
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/r", r);
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/g", g);
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/b", b);
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/alpha", alpha);
-            InitMarker(marker, "cylinder_strategy_2", i, 10, r, g, b, alpha, "CylinderShell_10mm");
+            InitMarker(marker, "cylinder_strategy_2", i, 10, color_cylinder_strategy_2[0], color_cylinder_strategy_2[1], color_cylinder_strategy_2[2], color_cylinder_strategy_2[3], "CylinderShell_10mm");
             CylinderOrientation(p21, p22, cylinder_pose, cylinder_height);
             marker.pose = cylinder_pose;
             marker.scale.x = 0.001*2*Sa_min_perp.data;    // radius
@@ -613,11 +573,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
 
 
             // hemisphere 1 at cylinder ends
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/r", r);
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/g", g);
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/b", b);
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/alpha", alpha);
-            InitMarker(marker, "hemisphere1_strategy_2", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+            InitMarker(marker, "hemisphere1_strategy_2", i, 10, color_cylinder_strategy_2[0], color_cylinder_strategy_2[1], color_cylinder_strategy_2[2], color_cylinder_strategy_2[3], "HemisphereShell_10mm");
             marker.pose.position.x = ref[0][i];
             marker.pose.position.y = ref[1][i];
             marker.pose.position.z = ref[2][i];
@@ -628,11 +584,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // hemisphere 1 at cylinder ends
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/r", r);
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/g", g);
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/b", b);
-            nh2.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/alpha", alpha);
-            InitMarker(marker, "hemisphere2_strategy_2", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+            InitMarker(marker, "hemisphere2_strategy_2", i, 10, color_cylinder_strategy_2[0], color_cylinder_strategy_2[1], color_cylinder_strategy_2[2], color_cylinder_strategy_2[3], "HemisphereShell_10mm");
             CylinderOrientation(p22, p21, cylinder_pose, cylinder_height);
             marker.pose.position = obj_pose[i].position;
             marker.pose.orientation = cylinder_pose.orientation;        
@@ -654,11 +606,8 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             p32.x = ref[0][i];
             p32.y = ref[1][i];
             p32.z = ref[2][i];
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/r", r);
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/g", g);
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/b", b);
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/alpha", alpha);
-            InitMarker(marker, "cylinder_strategy_3", i, 10, r, g, b, alpha, "CylinderShell_10mm");
+
+            InitMarker(marker, "cylinder_strategy_3", i, 10, color_cylinder_strategy_3[0], color_cylinder_strategy_3[1], color_cylinder_strategy_3[2], color_cylinder_strategy_3[3], "CylinderShell_10mm");
             CylinderOrientation(p31, p32, cylinder_pose, cylinder_height);
             marker.pose = cylinder_pose;
             marker.scale.x = 0.001*2*future_tubes[i].min_radius;   // radius
@@ -667,11 +616,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // hemisphere1 at cylinder ends
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/r", r);
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/g", g);
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/b", b);
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/alpha", alpha);
-            InitMarker(marker, "hemisphere1_strategy_3", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+            InitMarker(marker, "hemisphere1_strategy_3", i, 10, color_cylinder_strategy_3[0], color_cylinder_strategy_3[1], color_cylinder_strategy_3[2], color_cylinder_strategy_3[3], "HemisphereShell_10mm");
             marker.pose.position.x = ref[0][i];
             marker.pose.position.y = ref[1][i];
             marker.pose.position.z = ref[2][i];
@@ -682,11 +627,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // hemisphere2 at cylinder ends
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/r", r);
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/g", g);
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/b", b);
-            nh2.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/alpha", alpha);
-            InitMarker(marker, "hemisphere2_strategy_3", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+            InitMarker(marker, "hemisphere2_strategy_3", i, 10, color_cylinder_strategy_3[0], color_cylinder_strategy_3[1], color_cylinder_strategy_3[2], color_cylinder_strategy_3[3], "HemisphereShell_10mm");
             marker.pose.position = obj_pose[i].position;
             CylinderOrientation(p32, p31, cylinder_pose, cylinder_height);
             marker.pose.orientation = cylinder_pose.orientation;
@@ -708,11 +649,8 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             p42.x = future_tubes[i].p0.x;
             p42.y = future_tubes[i].p0.y;
             p42.z = future_tubes[i].p0.z;
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/r", r);
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/g", g);
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/b", b);
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/alpha", alpha);
-            InitMarker(marker, "cylinder_strategy_4", i, 10, r, g, b, alpha, "CylinderShell_10mm");
+            
+            InitMarker(marker, "cylinder_strategy_4", i, 10, color_cylinder_strategy_4[0], color_cylinder_strategy_4[1], color_cylinder_strategy_4[2], color_cylinder_strategy_4[3], "CylinderShell_10mm");
             CylinderOrientation(p41, p42, cylinder_pose, cylinder_height);
             marker.pose = cylinder_pose;
             marker.scale.x = 0.001*2*future_tubes[i].min_radius;   // Sa_min_perp radius
@@ -721,11 +659,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // Red hemisphere1 at cylinder ends
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/r", r);
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/g", g);
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/b", b);
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/alpha", alpha);
-            InitMarker(marker, "hemisphere1_strategy_4", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+            InitMarker(marker, "hemisphere1_strategy_4", i, 10, color_hemisphere1_strategy_4[0], color_hemisphere1_strategy_4[1], color_hemisphere1_strategy_4[2], color_hemisphere1_strategy_4[3], "HemisphereShell_10mm");
             marker.pose.position.x = future_tubes[i].p0.x;
             marker.pose.position.y = future_tubes[i].p0.y;
             marker.pose.position.z = future_tubes[i].p0.z;
@@ -736,11 +670,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
 
             // Red hemisphere2 at cylinder ends
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/r", r);
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/g", g);
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/b", b);
-            nh2.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/alpha", alpha);
-            InitMarker(marker, "hemisphere2_strategy_4", i, 10, r, g, b, alpha, "HemisphereShell_10mm");
+            InitMarker(marker, "hemisphere2_strategy_4", i, 10, color_hemisphere2_strategy_4[0], color_hemisphere2_strategy_4[1], color_hemisphere2_strategy_4[2], color_hemisphere2_strategy_4[3], "HemisphereShell_10mm");
             marker.pose.position.x = future_tubes[i].p1.x;
             marker.pose.position.y = future_tubes[i].p1.y;
             marker.pose.position.z = future_tubes[i].p1.z;
@@ -760,11 +690,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
     }
 
     // red lines between uavs current position
-    nh2.getParam("/visualization_brubotics/all_strategies/red_lines/r", r);
-    nh2.getParam("/visualization_brubotics/all_strategies/red_lines/g", g);
-    nh2.getParam("/visualization_brubotics/all_strategies/red_lines/b", b);
-    nh2.getParam("/visualization_brubotics/all_strategies/red_lines/alpha", alpha);
-    RedLines(all_markers, marker, obj_pose, number_uav, Ra, r, g, b, alpha);
+    RedLines(all_markers, marker, obj_pose, number_uav, Ra, color_red_lines[0], color_red_lines[1], color_red_lines[2], color_red_lines[3]);
 
     // Shortest distance line (which is initialy for strategy 5)
     ShortestDistanceLines(all_markers, marker, predicted_trajectories, Ra, number_uav);
@@ -809,7 +735,63 @@ int main(int argc, char **argv){
     number_of_uav = diagnostics.active_vehicles.size();
 
     nh.getParam("/visualization_brubotics/NUMBER_OF_POINTS_TRAJECTORY", number_of_point_traj);
-
+    nh.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/r", color_current_pose_sphere[0]);
+    nh.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/g", color_current_pose_sphere[1]);
+    nh.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/b", color_current_pose_sphere[2]);
+    nh.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/alpha", color_current_pose_sphere[3]);
+    nh.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/r", color_applied_ref_sphere[0]);
+    nh.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/g", color_applied_ref_sphere[1]);
+    nh.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/b", color_applied_ref_sphere[2]);
+    nh.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/alpha", color_applied_ref_sphere[3]);   
+    nh.getParam("/visualization_brubotics/all_strategies/trajectory/r", color_trajectory[0]);
+    nh.getParam("/visualization_brubotics/all_strategies/trajectory/g", color_trajectory[1]);
+    nh.getParam("/visualization_brubotics/all_strategies/trajectory/b", color_trajectory[2]);
+    nh.getParam("/visualization_brubotics/all_strategies/trajectory/alpha", color_trajectory[3]);
+    nh.getParam("/visualization_brubotics/strategy_0/error_sphere/r", color_error_sphere[0]);
+    nh.getParam("/visualization_brubotics/strategy_0/error_sphere/g", color_error_sphere[1]);
+    nh.getParam("/visualization_brubotics/strategy_0/error_sphere/b", color_error_sphere[2]);
+    nh.getParam("/visualization_brubotics/strategy_0/error_sphere/alpha", color_error_sphere[3]);
+    nh.getParam("/visualization_brubotics/all_strategies/red_lines/r", color_red_lines[0]);
+    nh.getParam("/visualization_brubotics/all_strategies/red_lines/g", color_red_lines[1]);
+    nh.getParam("/visualization_brubotics/all_strategies/red_lines/b", color_red_lines[2]);
+    nh.getParam("/visualization_brubotics/all_strategies/red_lines/alpha", color_red_lines[3]);
+    nh.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/r", color_shortest_distance_lines[0]);
+    nh.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/g", color_shortest_distance_lines[1]);
+    nh.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/b", color_shortest_distance_lines[2]);
+    nh.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/alpha", color_shortest_distance_lines[3]);
+    nh.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/r", color_desired_ref_sphere[0]);
+    nh.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/g", color_desired_ref_sphere[1]);
+    nh.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/b", color_desired_ref_sphere[2]);
+    nh.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/alpha", color_desired_ref_sphere[3]);
+    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/r", color_strategy_1_cylinder_strategy_1[0]);
+    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/g", color_strategy_1_cylinder_strategy_1[1]);
+    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/b", color_strategy_1_cylinder_strategy_1[2]);
+    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/alpha", color_strategy_1_cylinder_strategy_1[3]);
+    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/r", color_strategy_2_3_4_cylinder_strategy_1[0]);
+    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/g", color_strategy_2_3_4_cylinder_strategy_1[1]);
+    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/b", color_strategy_2_3_4_cylinder_strategy_1[2]);
+    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/alpha", color_strategy_2_3_4_cylinder_strategy_1[3]);
+    nh.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/r", color_cylinder_strategy_2[0]);
+    nh.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/g", color_cylinder_strategy_2[1]);
+    nh.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/b", color_cylinder_strategy_2[2]);
+    nh.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/alpha", color_cylinder_strategy_2[3]);
+    nh.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/r", color_cylinder_strategy_3[0]);
+    nh.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/g", color_cylinder_strategy_3[1]);
+    nh.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/b", color_cylinder_strategy_3[2]);
+    nh.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/alpha", color_cylinder_strategy_3[3]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/r", color_cylinder_strategy_4[0]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/g", color_cylinder_strategy_4[1]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/b", color_cylinder_strategy_4[2]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/alpha", color_cylinder_strategy_4[3]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/r", color_hemisphere1_strategy_4[0]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/g", color_hemisphere1_strategy_4[1]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/b", color_hemisphere1_strategy_4[2]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/alpha", color_hemisphere1_strategy_4[3]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/r", color_hemisphere2_strategy_4[0]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/g", color_hemisphere2_strategy_4[1]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/b", color_hemisphere2_strategy_4[2]);
+    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/alpha", color_hemisphere2_strategy_4[3]);
+    
     // create subscribers
     std::vector<boost::function<void (const geometry_msgs::PoseArray::ConstPtr&)>> f1;
     f1.resize(MAX_UAV_NUMBER);
