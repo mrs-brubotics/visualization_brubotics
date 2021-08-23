@@ -7,7 +7,7 @@ Visualization developed by the summer 2021 BruBotics interns.
 
 This visualization only works with the [two_drones_D-ERG simulation](https://github.com/mrs-brubotics/testing_brubotics/tree/master/tmux_scripts/bryan/two_drones_D-ERG).
 
-Be sure to have an updated ```.yml``` file for the rviz part.
+Be sure to have the `enable_visualization` variable set to `true` in the [dergbryan_tracker.yaml](https://github.com/mrs-brubotics/trackers_brubotics/blob/master/config/default/dergbryan_tracker.yaml) and an updated ```.yml``` file for the rviz part.
 It must look like this:
 ```
   - rviz:
