@@ -3,7 +3,10 @@
 #include <mrs_msgs/SpawnerDiagnostics.h>
 #include <mrs_msgs/FutureTrajectory.h>
 #include <mrs_msgs/FuturePoint.h>
+#include <mrs_msgs/Reference.h>
+#include <mrs_msgs/ReferenceStamped.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/Vector3.h>
 #include <std_msgs/Int32.h>
@@ -53,13 +56,14 @@ std::vector<float> color_hemisphere2_strategy_4(4);
 
 // Publishers
 ros::Publisher marker_publisher_;
-ros::Publisher trajectory_publisher_;
+ros::Publisher frame_publisher_;
 // Subscribers
 ros::Subscriber diagnostics_subscriber_;
 ros::Subscriber DERG_strategy_id_subscriber_;
 ros::Subscriber Sa_subscriber_;             
 ros::Subscriber Sa_perp_subscriber_;
 ros::Subscriber tube_min_radius_subscriber_;
+std::vector<ros::Subscriber> goal_pose_subscriber_(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> uav_current_pose_subscribers_(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> uav_applied_ref_subscribers_(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> point_link_star_subscribers_(MAX_UAV_NUMBER);
@@ -83,6 +87,8 @@ std_msgs::Float32 tube_min_radius;
 std::vector<geometry_msgs::Pose> uav_current_poses(MAX_UAV_NUMBER);
 std::vector<geometry_msgs::Pose> point_link_stars(MAX_UAV_NUMBER);
 std::vector<trackers_brubotics::FutureTrajectoryTube> future_tubes(MAX_UAV_NUMBER);
+std::vector<geometry_msgs::PoseStamped> frame_pose(MAX_UAV_NUMBER);
+std::vector<mrs_msgs::Reference> goal_pose(MAX_UAV_NUMBER);
 
 
 // | ---------------------------------- Class --------------------------------- |
@@ -108,6 +114,7 @@ class Point
 // | --------------------------- Function prototypes -------------------------- |
 
 // Callbacks
+void GoalPoseCallback(const mrs_msgs::ReferenceStamped::ConstPtr& msg, int uav_number);
 void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& diagnostics);
 void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg);
 void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
@@ -124,6 +131,7 @@ void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg);
 // Others functions
 double getDistance(const Point& p1, const Point& p2);
 Point getMiddle(const Point& pt1, const Point& pt2);
+void FrameOrientation(geometry_msgs::Pose& frame, const mrs_msgs::Reference& goal_pose);
 void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& cylinder_pose, double& cylinder_height);
 void CalculNorm(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, double& norm);
 void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind);
@@ -132,6 +140,7 @@ void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualizati
 void Trajectory(visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type, const float& r, const float& g, const float& b, const float& alpha);
 void RedLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::vector<geometry_msgs::Pose>& obj_pose, const int& number_uav, const double& radius, const float& r, const float& g, const float& b, const float& alpha);
 void InitMarker(visualization_msgs::Marker& marker, const std::string name, const int id, const int type, const float r, const float g, const float b, const float a, const std::string &mesh);
+void PublishFrame(std::vector<geometry_msgs::PoseStamped> frame_pose,const std::vector<mrs_msgs::Reference>& goal_pose, int number_uav);
 void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref, 
                     const std::vector<geometry_msgs::Pose>& pstar, 
                     const std::vector<trackers_brubotics::FutureTrajectoryTube>& future_tubes, 
@@ -139,6 +148,13 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
 
 
 // | -------------------------------- Callbacks ------------------------------- |
+
+void GoalPoseCallback(const mrs_msgs::ReferenceStamped::ConstPtr& msg, int uav_number){
+    frame_pose[uav_number-1].header = msg -> header;
+    goal_pose[uav_number-1] = msg -> reference;
+    
+    // ROS_INFO_STREAM("goal pose : " << goal_pose[uav_number-1]);
+}
 
 void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& msg){
     if (test1){
@@ -227,6 +243,21 @@ Point getMiddle(const Point& pt1, const Point& pt2){
     res.y = (pt1.y + pt2.y)*0.5;
     res.z = (pt1.z + pt2.z)*0.5;
     return res;
+}
+
+void FrameOrientation(geometry_msgs::Pose& frame, const mrs_msgs::Reference& goal_pose){
+
+    Eigen::Vector3d frame_z_direction(0., 0., goal_pose.heading);
+    Eigen::Vector3d origin_z_direction(0., 0., 1.);
+    frame_z_direction.normalize();
+    Eigen::Vector3d axis;
+    axis = origin_z_direction.cross(frame_z_direction);
+    axis.normalize();
+    double angle = acos(frame_z_direction.dot(origin_z_direction));
+    frame.orientation.x = axis.x() * sin(angle/2);
+    frame.orientation.y = axis.y() * sin(angle/2);
+    frame.orientation.z = axis.z() * sin(angle/2);
+    frame.orientation.w = cos(angle/2);
 }
 
 // Calculate the pose and the height of a cylinder formed from two points
@@ -440,13 +471,14 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
     
     visualization_msgs::Marker marker;
     visualization_msgs::MarkerArray all_markers;
-    geometry_msgs::Pose cylinder_pose;
     double cylinder_height;
     Point p11, p12;
     Point p21, p22;
     Point p31, p32;
     Point p41, p42;
     
+    
+
 
     // loop for each drone
     for(int i=0; i<number_uav; i++){
@@ -699,7 +731,22 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
 
 }
 
+void PublishFrame(std::vector<geometry_msgs::PoseStamped> frame_pose,const std::vector<mrs_msgs::Reference>& goal_pose, int number_uav){
+    geometry_msgs::PoseArray frame_poses;
 
+    frame_poses.header.seq = frame_pose[0].header.seq;
+    frame_poses.header.stamp = ros::Time::now();
+    frame_poses.header.frame_id = "/common_origin";
+
+    for(int i=0; i<number_uav; i++){
+        FrameOrientation(frame_pose[i].pose, goal_pose[i]);
+        frame_pose[i].pose.position = goal_pose[i].position;
+        frame_poses.poses.push_back(frame_pose[i].pose);
+           
+    }
+    
+    frame_publisher_.publish(frame_poses);
+}
 
 // | ---------------------------------- MAIN ---------------------------------- |
 
@@ -724,6 +771,7 @@ int main(int argc, char **argv){
     Sa_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_max", 1, SaCallback);
     Sa_perp_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_perp_max", 1, SaPerpCallback);
     tube_min_radius_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/tube_min_radius", 1, TubeMinRadiusCallback);
+    
 
     //  We wait until we receive the message for the diagnostics_subscriber_
     while(!test1){
@@ -803,7 +851,8 @@ int main(int argc, char **argv){
     f4.resize(MAX_UAV_NUMBER);
     std::vector<boost::function<void (const trackers_brubotics::FutureTrajectoryTube::ConstPtr&)>> f5;
     f5.resize(MAX_UAV_NUMBER);
-
+    std::vector<boost::function<void (const mrs_msgs::ReferenceStamped::ConstPtr&)>> f6;
+    f6.resize(MAX_UAV_NUMBER);
 
     for(int i=0; i<diagnostics.active_vehicles.size(); i++){
 
@@ -827,6 +876,9 @@ int main(int argc, char **argv){
         f5[i] = boost::bind(FutureTubeCallback, _1, i+1);
         future_tube_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] +"/control_manager/dergbryan_tracker/future_trajectory_tube", 10, f5[i]);
 
+        // create subscribers for uav future tube
+        f6[i] = boost::bind(GoalPoseCallback, _1, i+1);
+        goal_pose_subscriber_[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/goal_pose", 10, f6[i]);
     }   
 
 
@@ -836,14 +888,17 @@ int main(int argc, char **argv){
 
     }
 
+
     // create one publisher for all the all the markers
+    frame_publisher_ = n.advertise<geometry_msgs::PoseArray>("goal_pose_frame", 10);
     marker_publisher_ = n.advertise<visualization_msgs::MarkerArray>("visualization_marker", 10);
 
     // Display
     // ^^^^^^^
 
     while(ros::ok){
-        PublishMarkers(uav_current_poses, uav_applied_ref, point_link_stars, future_tubes, predicted_trajectories, number_of_uav);                   
+        PublishMarkers(uav_current_poses, uav_applied_ref, point_link_stars, future_tubes, predicted_trajectories, number_of_uav);  
+        PublishFrame(frame_pose, goal_pose, number_of_uav);
         ros::spinOnce();
         r.sleep();
 
