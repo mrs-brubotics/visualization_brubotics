@@ -137,7 +137,7 @@ void CalculNorm(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, 
 void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind);
 void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, const double& norm);
 void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const double& radius, const int& number_uav);
-void Trajectory(visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type, const float& r, const float& g, const float& b, const float& alpha);
+void Trajectory(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type, const float& r, const float& g, const float& b, const float& alpha);
 void RedLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::vector<geometry_msgs::Pose>& obj_pose, const int& number_uav, const double& radius, const float& r, const float& g, const float& b, const float& alpha);
 void InitMarker(visualization_msgs::Marker& marker, const std::string name, const int id, const int type, const float r, const float g, const float b, const float a, const std::string &mesh);
 void PublishFrame(std::vector<geometry_msgs::PoseStamped> frame_pose,const std::vector<mrs_msgs::Reference>& goal_pose, int number_uav);
@@ -399,10 +399,10 @@ void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualizati
     } 
 }
 
-void Trajectory(visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type, const float& r, const float& g, const float& b, const float& alpha){
+void Trajectory(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type, const float& r, const float& g, const float& b, const float& alpha){
     
     geometry_msgs::Point p_traj;
-
+    int arrow_index=0;
     if(type==4){
         InitMarker(marker,"trajectory line strip", ind_uav,type, r, g, b, alpha);
         marker.scale.x = 0.05;    // width of the line strip
@@ -416,6 +416,24 @@ void Trajectory(visualization_msgs::Marker& marker, int ind_uav, const std::arra
     
     step = predicted_traj.points.size() / number_of_point_traj;
 
+    if(type==0){
+        for(int j=0; j<(predicted_traj.points.size() - step); j+=2*step){
+            marker.points.clear();
+            InitMarker(marker,"trajectory arrow list", arrow_index+1000*ind_uav, type, r, g, b, alpha);
+            arrow_index += 1;
+            marker.scale.x = 0.075;    // shaft diameter
+            marker.scale.y = 0.125;    // head diameter
+                // head length (=0 is default length of an Rviz arrow)
+            for(int i=0; i<2; i++){
+                p_traj.x = predicted_trajectories[j+i*step][0][ind_uav];
+                p_traj.y = predicted_trajectories[j+i*step][1][ind_uav];
+                p_traj.z = predicted_trajectories[j+i*step][2][ind_uav];
+                marker.points.push_back(p_traj);
+            }
+            markers.markers.push_back(marker);
+        }
+    }
+    
     for(int j=0; j<(predicted_traj.points.size() - step); j+=step){
         p_traj.x = predicted_trajectories[j][0][ind_uav];
         p_traj.y = predicted_trajectories[j][1][ind_uav];
@@ -502,13 +520,16 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         all_markers.markers.push_back(marker);
 
         // Predicted trajectory sphere list
-        Trajectory(marker, i, predicted_trajectories, 7, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
+        Trajectory(all_markers, marker, i, predicted_trajectories, 7, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
         all_markers.markers.push_back(marker);
         marker.points.clear();
         
         // Predicted trajectory line strip
-        Trajectory(marker, i, predicted_trajectories, 4, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
+        Trajectory(all_markers, marker, i, predicted_trajectories, 4, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
         all_markers.markers.push_back(marker);
+        marker.points.clear();
+
+        Trajectory(all_markers, marker, i, predicted_trajectories, 0, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
         marker.points.clear();
 
         if(_DERG_strategy_id_.data == 0){
