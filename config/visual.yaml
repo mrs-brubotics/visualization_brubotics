@@ -32,6 +32,11 @@ all_strategies:
     g: 0.6
     b: 0.6
     alpha: 0.1
+  UAV_text_label:
+    r: 0.
+    g: 0.
+    b: 0.
+    alpha: 1.
 
 strategy_0:
   error_sphere:
@@ -49,10 +54,10 @@ strategy_1_tube:
       alpha: 0.075
   strategy_2_3_4:
     cylinder_strategy_1:
-      r: 0.251
-      g: 0.251
-      b: 0.251
-      alpha: 0.05
+      r: 0.851
+      g: 0.851
+      b: 0.851
+      alpha: 0.075
 
 strategy_2_tube:
   cylinder_strategy_2:

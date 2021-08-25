@@ -21,7 +21,7 @@
 #include <iostream>
 #include <string>
 
-#define MAX_UAV_NUMBER 10           // Maximum number of UAVs for the visualization, used to initialized vectors and arrays
+#define MAX_UAV_NUMBER 10       // Maximum number of UAVs for the visualization, used to initialized vectors and arrays
 
 
 // | -------------------------------- Parameters -------------------------------- |
@@ -35,7 +35,7 @@ int number_of_uav;
 std::array<std::array<double, 2>, 3> uav_applied_ref;
 std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories;
 int number_of_point_traj;
-float r,g,b,alpha;
+std::string s_label;
 std::vector<float> color_current_pose_sphere(4);
 std::vector<float> color_applied_ref_sphere(4);
 std::vector<float> color_shortest_distance_lines(4);
@@ -50,6 +50,7 @@ std::vector<float> color_cylinder_strategy_3(4);
 std::vector<float> color_cylinder_strategy_4(4);
 std::vector<float> color_hemisphere1_strategy_4(4);
 std::vector<float> color_hemisphere2_strategy_4(4);
+std::vector<float> UAV_text_label(4);
 
 
 // | ------------------------ Publishers and subscribers ----------------------- |
@@ -63,7 +64,7 @@ ros::Subscriber DERG_strategy_id_subscriber_;
 ros::Subscriber Sa_subscriber_;             
 ros::Subscriber Sa_perp_subscriber_;
 ros::Subscriber tube_min_radius_subscriber_;
-std::vector<ros::Subscriber> goal_pose_subscriber_(MAX_UAV_NUMBER);
+std::vector<ros::Subscriber> goal_pose_subscribers_(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> uav_current_pose_subscribers_(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> uav_applied_ref_subscribers_(MAX_UAV_NUMBER);
 std::vector<ros::Subscriber> point_link_star_subscribers_(MAX_UAV_NUMBER);
@@ -90,34 +91,13 @@ std::vector<trackers_brubotics::FutureTrajectoryTube> future_tubes(MAX_UAV_NUMBE
 std::vector<geometry_msgs::PoseStamped> frame_pose(MAX_UAV_NUMBER);
 std::vector<mrs_msgs::Reference> goal_pose(MAX_UAV_NUMBER);
 
-
-// | ---------------------------------- Class --------------------------------- |
-
-class Point
-{
-
-    public:
-        double x;
-        double y;
-        double z;
-        Point(double a, double b, double c){
-            x = a;
-            y = b;
-            z = c;
-        }
-        Point(){
-        };
-
-};
-
-
 // | --------------------------- Function prototypes -------------------------- |
 
 // Callbacks
-void GoalPoseCallback(const mrs_msgs::ReferenceStamped::ConstPtr& msg, int uav_number);
 void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& diagnostics);
 void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg);
 void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
+void GoalPoseCallback(const mrs_msgs::ReferenceStamped::ConstPtr& msg, int uav_number);
 
 void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number);
 void AppliedRefCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
@@ -129,10 +109,10 @@ void SaPerpCallback(const std_msgs::Int32::ConstPtr& msg);
 void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg);
 
 // Others functions
-double getDistance(const Point& p1, const Point& p2);
-Point getMiddle(const Point& pt1, const Point& pt2);
+double getDistance(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2);
+geometry_msgs::Point getMiddle(const geometry_msgs::Point& pt1, const geometry_msgs::Point& pt2);
 void FrameOrientation(geometry_msgs::Pose& frame, const mrs_msgs::Reference& goal_pose);
-void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& cylinder_pose, double& cylinder_height);
+void CylinderOrientation(const geometry_msgs::Point &p1,const geometry_msgs::Point &p2, geometry_msgs::Pose& cylinder_pose, double& cylinder_height);
 void CalculNorm(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, double& norm);
 void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind);
 void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, const double& norm);
@@ -149,12 +129,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array
 
 // | -------------------------------- Callbacks ------------------------------- |
 
-void GoalPoseCallback(const mrs_msgs::ReferenceStamped::ConstPtr& msg, int uav_number){
-    frame_pose[uav_number-1].header = msg -> header;
-    goal_pose[uav_number-1] = msg -> reference;
-    
-    // ROS_INFO_STREAM("goal pose : " << goal_pose[uav_number-1]);
-}
+
 
 void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& msg){
     if (test1){
@@ -179,6 +154,12 @@ void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg
         //ROS_INFO_STREAM("x : " << predicted_trajectories[i][0][uav_number-1]);
     }
     test2 = true;
+}
+
+void GoalPoseCallback(const mrs_msgs::ReferenceStamped::ConstPtr& msg, int uav_number){
+    frame_pose[uav_number-1].header = msg -> header;
+    goal_pose[uav_number-1] = msg -> reference;
+    // ROS_INFO_STREAM("goal pose : " << goal_pose[uav_number-1]);
 }
 
 void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number){
@@ -230,15 +211,15 @@ void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg){
 // | -------------------------- Function definitions -------------------------- |
 
 // Return the distance between two points
-double getDistance(const Point& p1, const Point& p2){
+double getDistance(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2){
     double res;
     res = sqrt((p1.x-p2.x)*(p1.x-p2.x)+(p1.y-p2.y)*(p1.y-p2.y)+(p1.z-p2.z)*(p1.z-p2.z));
     return res;
 }
 
 // Return the middle point of two points
-Point getMiddle(const Point& pt1, const Point& pt2){
-    Point res;
+geometry_msgs::Point getMiddle(const geometry_msgs::Point& pt1, const geometry_msgs::Point& pt2){
+    geometry_msgs::Point res;
     res.x = (pt1.x + pt2.x)*0.5;
     res.y = (pt1.y + pt2.y)*0.5;
     res.z = (pt1.z + pt2.z)*0.5;
@@ -261,9 +242,9 @@ void FrameOrientation(geometry_msgs::Pose& frame, const mrs_msgs::Reference& goa
 }
 
 // Calculate the pose and the height of a cylinder formed from two points
-void CylinderOrientation(const Point &p1,const Point &p2, geometry_msgs::Pose& cylinder_pose, double& cylinder_height){
+void CylinderOrientation(const geometry_msgs::Point &p1,const geometry_msgs::Point &p2, geometry_msgs::Pose& cylinder_pose, double& cylinder_height){
 
-    Point middle = getMiddle(p1, p2);
+    geometry_msgs::Point middle = getMiddle(p1, p2);
     cylinder_height = getDistance(p1, p2);
 
     cylinder_pose.position.x = middle.x; 
@@ -326,6 +307,7 @@ void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> 
         }
 }
 
+// Initialize marker with namespace, id, type, color (and mesh)
 void InitMarker(visualization_msgs::Marker& marker, const std::string name, const int id, const int type, const float r, const float g, const float b, const float a, const std::string &mesh = empty){
     //Clear marker pose
     marker.pose.position.x = 0;
@@ -352,6 +334,7 @@ void InitMarker(visualization_msgs::Marker& marker, const std::string name, cons
     marker.lifetime = ros::Duration();
 }
 
+// Compute the line showing the shortest distance between UAV trajectories
 void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const double& radius, const int& number_uav){
     // line for minimal distance
     double norm_min;
@@ -399,6 +382,7 @@ void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualizati
     } 
 }
 
+// Compute the trajectory with a sphere list, a line strip and arrows
 void Trajectory(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type, const float& r, const float& g, const float& b, const float& alpha){
     
     geometry_msgs::Point p_traj;
@@ -449,6 +433,7 @@ void Trajectory(visualization_msgs::MarkerArray& markers, visualization_msgs::Ma
     //ROS_INFO_STREAM("number of points: " << marker.points.size() << ", step: " << step << ", size: " << predicted_traj.points.size());
 }
 
+// Compute the line between UAV current poses
 void RedLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::vector<geometry_msgs::Pose>& obj_pose, const int& number_uav, const double& radius, const float& r, const float& g, const float& b, const float& alpha){
     geometry_msgs::Point p1, p2, p_new;
     double norm;
@@ -490,13 +475,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
     visualization_msgs::Marker marker;
     visualization_msgs::MarkerArray all_markers;
     double cylinder_height;
-    Point p11, p12;
-    Point p21, p22;
-    Point p31, p32;
-    Point p41, p42;
+    geometry_msgs::Point p11, p12;
+    geometry_msgs::Point p21, p22;
+    geometry_msgs::Point p31, p32;
+    geometry_msgs::Point p41, p42;
     
-    
-
 
     // loop for each drone
     for(int i=0; i<number_uav; i++){
@@ -519,6 +502,29 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         marker.scale.z = 2*Ra;      // radius
         all_markers.markers.push_back(marker);
 
+        // UAV label at current pose and at goal pose
+        InitMarker(marker,"UAV_text_label", i, 9, UAV_text_label[0], UAV_text_label[1], UAV_text_label[2], UAV_text_label[3]);
+        marker.pose.position = obj_pose[i].position;
+        marker.pose.position.z = obj_pose[i].position.z + 1.5;
+        marker.scale.z = 0.5;     //  height of an uppercase "A"
+        marker.text = diagnostics.active_vehicles[i];
+        all_markers.markers.push_back(marker);
+
+        InitMarker(marker,"frame_text_label", i, 9, UAV_text_label[0], UAV_text_label[1], UAV_text_label[2], UAV_text_label[3]);
+        marker.pose.position = goal_pose[i].position;
+        marker.pose.position.z = goal_pose[i].position.z + 0.75;
+        if(marker.pose.position.y <= 0){
+            marker.pose.position.y = goal_pose[i].position.y - 1;
+        }
+        else{
+            marker.pose.position.y = goal_pose[i].position.y + 1;
+        }
+        s_label = diagnostics.active_vehicles[i];
+        s_label.replace(0, 3, "goal");
+        marker.scale.z = 0.5;     //  height of an uppercase "A"
+        marker.text = s_label;
+        all_markers.markers.push_back(marker);
+
         // Predicted trajectory sphere list
         Trajectory(all_markers, marker, i, predicted_trajectories, 7, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
         all_markers.markers.push_back(marker);
@@ -529,9 +535,11 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
         all_markers.markers.push_back(marker);
         marker.points.clear();
 
+        // Predicted trajectory arrows
         Trajectory(all_markers, marker, i, predicted_trajectories, 0, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
         marker.points.clear();
 
+        //Strategy 0 part
         if(_DERG_strategy_id_.data == 0){
 
             // error sphere at applied ref pose
@@ -545,7 +553,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
         }
 
-            //Strategy 1 part
+        //Strategy 1 part
         if(_DERG_strategy_id_.data == 1 || _DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){  
 
             // Blue tube
@@ -604,7 +612,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
         }
 
-            //Strategy 2 part
+        //Strategy 2 part
         if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
 
             // Blue tube
@@ -647,7 +655,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
         }
 
-            //Strategy 3 part
+        //Strategy 3 part
         if(_DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 5){
 
             // Orange tube
@@ -690,7 +698,7 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
         }
 
-            //Strategy 4 part
+        //Strategy 4 part
         if(_DERG_strategy_id_.data == 4){
             
             // Orange tube
@@ -735,14 +743,13 @@ void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
             all_markers.markers.push_back(marker);
         }
 
-            //Strategy 5 part
+        //Strategy 5 part
         if(_DERG_strategy_id_.data == 5){
-
         }
 
     }
 
-    // red lines between uavs current position
+    // Red lines between uavs current position
     RedLines(all_markers, marker, obj_pose, number_uav, Ra, color_red_lines[0], color_red_lines[1], color_red_lines[2], color_red_lines[3]);
 
     // Shortest distance line (which is initialy for strategy 5)
@@ -803,6 +810,7 @@ int main(int argc, char **argv){
 
     number_of_uav = diagnostics.active_vehicles.size();
 
+    // Load parameters from visual.yaml file
     nh.getParam("/visualization_brubotics/NUMBER_OF_POINTS_TRAJECTORY", number_of_point_traj);
     nh.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/r", color_current_pose_sphere[0]);
     nh.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/g", color_current_pose_sphere[1]);
@@ -860,7 +868,11 @@ int main(int argc, char **argv){
     nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/g", color_hemisphere2_strategy_4[1]);
     nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/b", color_hemisphere2_strategy_4[2]);
     nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/alpha", color_hemisphere2_strategy_4[3]);
-    
+    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/r", UAV_text_label[0]);
+    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/g", UAV_text_label[1]);
+    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/b", UAV_text_label[2]);
+    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/alpha", UAV_text_label[3]);
+
     // create subscribers
     std::vector<boost::function<void (const geometry_msgs::PoseArray::ConstPtr&)>> f1;
     f1.resize(MAX_UAV_NUMBER);
@@ -899,20 +911,17 @@ int main(int argc, char **argv){
 
         // create subscribers for uav future tube
         f6[i] = boost::bind(GoalPoseCallback, _1, i+1);
-        goal_pose_subscriber_[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/goal_pose", 10, f6[i]);
+        goal_pose_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/goal_pose", 10, f6[i]);
     }   
-
 
     while(!test2){
         ros::spinOnce();
         r.sleep();
-
     }
 
-
-    // create one publisher for all the all the markers
-    frame_publisher_ = n.advertise<geometry_msgs::PoseArray>("goal_pose_frame", 10);
-    marker_publisher_ = n.advertise<visualization_msgs::MarkerArray>("visualization_marker", 10);
+    // Publish topics
+    frame_publisher_ = n.advertise<geometry_msgs::PoseArray>("visualization_brubotics/goal_pose_frames", 10);
+    marker_publisher_ = n.advertise<visualization_msgs::MarkerArray>("visualization_brubotics/markers", 10);
 
     // Display
     // ^^^^^^^
@@ -922,7 +931,6 @@ int main(int argc, char **argv){
         PublishFrame(frame_pose, goal_pose, number_of_uav);
         ros::spinOnce();
         r.sleep();
-
     }
 
     return 0;
