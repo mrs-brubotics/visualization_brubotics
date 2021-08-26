@@ -2,10 +2,17 @@
 Visualization developed by the summer 2021 BruBotics interns.
 
 <p align="center">
+  <img width="485" height="424" src="https://github.com/mrs-brubotics/visualization_brubotics/blob/main/.fig/derg4.png">
+</p>
+<p align="center">
+  <em>D-ERG Strategy 4 visualization</em>
+</p>
+
+<p align="center">
   <img width="485" height="424" src="https://github.com/mrs-brubotics/visualization_brubotics/blob/main/.fig/derg5.png">
 </p>
 <p align="center">
-  <em>test</em>
+  <em>D-ERG Strategy 5 visualization</em>
 </p>
 
 This visualization only works with the [two_drones_D-ERG simulation](https://github.com/mrs-brubotics/testing_brubotics/tree/master/tmux_scripts/bryan/two_drones_D-ERG).
