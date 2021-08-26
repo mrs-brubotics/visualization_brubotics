@@ -3,6 +3,7 @@ Visualization developed by the summer 2021 BruBotics interns.
 
 <p align="center">
   <img width="485" height="424" src="https://github.com/mrs-brubotics/visualization_brubotics/blob/main/.fig/derg5.png">
+  <figcaption>{{ test }}</figcaption>
 </p>
 
 This visualization only works with the [two_drones_D-ERG simulation](https://github.com/mrs-brubotics/testing_brubotics/tree/master/tmux_scripts/bryan/two_drones_D-ERG).
