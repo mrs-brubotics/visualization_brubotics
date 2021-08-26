@@ -5,7 +5,9 @@
 
 // | ------------------------ Publishers and subscribers ----------------------- |
 
+// Publishers
 ros::Publisher marker_array_pub;
+ros::Publisher frame_publisher_;
 
 // Subscribers
 ros::Subscriber diagnostics_subscriber_;
@@ -44,11 +46,12 @@ std::vector<mrs_msgs::Reference> goal_pose(MAX_UAV_NUMBER);
 const std::string empty = std::string();
 bool test1 = false;
 bool test2 = false;
+bool test3 = false;
 int step;           // displayed trajectory points step
 double Ra = 0.35;   // drone's radius
 int number_of_uav;
-std::array<std::array<double, 2>, 3> uav_applied_ref;
-std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories;
+std::array<std::array<double, MAX_UAV_NUMBER>, 3> uav_applied_ref;
+std::vector<mrs_msgs::FutureTrajectory> predicted_trajectories(MAX_UAV_NUMBER);
 int number_of_point_traj;
 std::string s_label;
 std::vector<float> color_current_pose_sphere(4);
@@ -81,6 +84,7 @@ int main(int argc, char** argv){
     // Subscribers and publishers
     //Publishers
     marker_array_pub = n.advertise<visualization_msgs::MarkerArray>("visualization_brubotics/markers", 10);
+    frame_publisher_ = n.advertise<geometry_msgs::PoseArray>("visualization_brubotics/goal_pose_frames", 10);
 
     // Subscribers
     diagnostics_subscriber_ = n.subscribe("mrs_drone_spawner/diagnostics", 1, DiagnosticsCallback);
@@ -208,19 +212,28 @@ int main(int argc, char** argv){
         ros::spinOnce();
         r.sleep();
     }
+    while(!test3){
+        ros::spinOnce();
+        r.sleep();
+    }
 
-    Eigen::Matrix<double, 1, 1> sphere_radii;
-    Eigen::Matrix<double, 3, 1> c;
+    Eigen::Matrix<double, 1, 1> sphere_radii, hemisphere_radii, cylinder_radii;
+    Eigen::Matrix<double, 3, 1> c, text_position;
     Eigen::Matrix<double, 6, 1> cylinder_startendpoints;
-    Eigen::Matrix<double, 1, 1> cylinder_radii;
-
     while(ros::ok()){
 
+        PublishFrame(frame_pose, goal_pose, number_of_uav);
+
+
         for(uint i = 0; i < number_of_uav; i++){
+            
+
+
+            // small sphere at current pose
             c = {uav_current_poses[i].position.x, 
                  uav_current_poses[i].position.y, 
                  uav_current_poses[i].position.z};
-            sphere_radii(0) = 2*Ra;
+            sphere_radii(0) = Ra;
             visualisation_rviz.changeMarkersColor(color_current_pose_sphere[0], 
                                                   color_current_pose_sphere[1], 
                                                   color_current_pose_sphere[2], 
@@ -230,10 +243,11 @@ int main(int argc, char** argv){
                                             i, 
                                             "current_pose_sphere");
             
+            // small sphere at applied ref pose
             c = {uav_applied_ref[0][i], 
                  uav_applied_ref[1][i], 
                  uav_applied_ref[2][i]};
-            sphere_radii(0) = 2*Ra;
+            sphere_radii(0) = Ra;
             visualisation_rviz.changeMarkersColor(color_applied_ref_sphere[0], 
                                                   color_applied_ref_sphere[1], 
                                                   color_applied_ref_sphere[2], 
@@ -243,18 +257,267 @@ int main(int argc, char** argv){
                                             i, 
                                             "applied_ref_sphere");
 
-            cylinder_startendpoints.block(0,0,3,1) = Eigen::Matrix<double, 3, 1> {point_link_stars[i].position.x,
-                                                                                point_link_stars[i].position.y,
-                                                                                point_link_stars[i].position.z};
-            cylinder_startendpoints.block(3,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_applied_ref[0][i],
-                                                                                uav_applied_ref[1][i],
-                                                                                uav_applied_ref[2][i]};
-            cylinder_radii(0) = Sa_min_perp.data;
-            visualisation_rviz.changeMarkersColor(color_applied_ref_sphere[0], color_applied_ref_sphere[1], color_applied_ref_sphere[2], color_applied_ref_sphere[3]);
-            visualisation_rviz.addOneCylinder(cylinder_startendpoints,
-                                          cylinder_radii,
-                                          i,
-                                          "cylinder_strategy_1");
+            visualisation_rviz.changeMarkersColor(color_trajectory[0], 
+                                                  color_trajectory[1], 
+                                                  color_trajectory[2], 
+                                                  color_trajectory[3]);
+            visualisation_rviz.addOneTrajectoryLine(predicted_trajectories,
+                                                    i,
+                                                    number_of_point_traj,
+                                                    "trajectory line strip",
+                                                    0.05);
+            visualisation_rviz.addOneTrajectorySpheres(predicted_trajectories,
+                                                    i,
+                                                    number_of_point_traj,
+                                                    "trajectory sphere list",
+                                                    0.05);
+            visualisation_rviz.addOneTrajectoryArrow(predicted_trajectories,
+                                                        i,
+                                                        number_of_point_traj,
+                                                        "trajectory arrow list",
+                                                        0.075,
+                                                        0.125);
+            visualisation_rviz.changeMarkersColor(color_red_lines[0], 
+                                                  color_red_lines[1], 
+                                                  color_red_lines[2], 
+                                                  color_red_lines[3]);
+            visualisation_rviz.addRedLines(uav_current_poses,
+                                           i,
+                                           "red lines",
+                                           0.05,
+                                           Ra,
+                                           number_of_uav);
+            visualisation_rviz.ShortestDistanceLines(predicted_trajectories,
+                                                     i,
+                                                     "shortest_distance_lines",
+                                                     0.05,
+                                                     Ra,
+                                                     number_of_uav,
+                                                     color_shortest_distance_lines,
+                                                     color_desired_ref_sphere);
+            visualisation_rviz.changeMarkersColor(UAV_text_label[0], 
+                                                  UAV_text_label[1], 
+                                                  UAV_text_label[2], 
+                                                  UAV_text_label[3]);
+            text_position = {uav_current_poses[i].position.x, 
+                            uav_current_poses[i].position.y, 
+                            uav_current_poses[i].position.z + 1.5};
+            s_label = diagnostics.active_vehicles[i];
+            s_label.replace(0, 3, "goal");
+            visualisation_rviz.addTextLabel(text_position,
+                                            i,
+                                            "UAV_text_label",
+                                            diagnostics.active_vehicles[i],
+                                            0.5);
+            text_position = {goal_pose[i].position.x,
+                             goal_pose[i].position.y,
+                             goal_pose[i].position.z - 1.5};
+            s_label = diagnostics.active_vehicles[i];
+            s_label.replace(0, 3, "goal");
+            visualisation_rviz.addTextLabel(text_position,
+                                            i,
+                                            "frame_text_label",
+                                            s_label,
+                                            0.5);
+            //Strategy 0 part
+            if(_DERG_strategy_id_.data == 0){
+                c = {uav_applied_ref[0][i], 
+                     uav_applied_ref[1][i], 
+                     uav_applied_ref[2][i]};
+                sphere_radii(0) = Sa_.data;
+                visualisation_rviz.changeMarkersColor(color_applied_ref_sphere[0], 
+                                                    color_applied_ref_sphere[1], 
+                                                    color_applied_ref_sphere[2], 
+                                                    color_applied_ref_sphere[3]);
+                visualisation_rviz.addOneSphere(c, 
+                                                sphere_radii, 
+                                                i, 
+                                                "error_sphere");
+            }
+            //Strategy 1 part
+            if(_DERG_strategy_id_.data == 1 || _DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
+                // cylinder1 between point link star and applied ref
+                cylinder_startendpoints.block(0,0,3,1) = Eigen::Matrix<double, 3, 1> {point_link_stars[i].position.x,
+                                                                                    point_link_stars[i].position.y,
+                                                                                    point_link_stars[i].position.z};
+                cylinder_startendpoints.block(3,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_applied_ref[0][i],
+                                                                                    uav_applied_ref[1][i],
+                                                                                    uav_applied_ref[2][i]};
+                cylinder_radii(0) = Sa_min_perp.data;
+                if(_DERG_strategy_id_.data == 1){   // Blue tube
+                    visualisation_rviz.changeMarkersColor(color_strategy_1_cylinder_strategy_1[0], 
+                                                        color_strategy_1_cylinder_strategy_1[1], 
+                                                        color_strategy_1_cylinder_strategy_1[2], 
+                                                        color_strategy_1_cylinder_strategy_1[3]);
+                }
+                else{                               // Transparent tube
+                    visualisation_rviz.changeMarkersColor(color_strategy_2_3_4_cylinder_strategy_1[0], 
+                                                        color_strategy_2_3_4_cylinder_strategy_1[1], 
+                                                        color_strategy_2_3_4_cylinder_strategy_1[2], 
+                                                        color_strategy_2_3_4_cylinder_strategy_1[3]);
+                }
+                visualisation_rviz.addOneCylinder(cylinder_startendpoints,
+                                                cylinder_radii,
+                                                i,
+                                                "cylinder_strategy_1");
+
+                // hemisphere 1 at cylinder ends
+                hemisphere_radii(0) = Sa_min_perp.data;
+                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                                                hemisphere_radii,
+                                                i,
+                                                "hemisphere1_strategy_1");
+                
+                cylinder_startendpoints.block(0,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_applied_ref[0][i],
+                                                                                    uav_applied_ref[1][i],
+                                                                                    uav_applied_ref[2][i]};
+                cylinder_startendpoints.block(3,0,3,1) = Eigen::Matrix<double, 3, 1> {point_link_stars[i].position.x,
+                                                                                    point_link_stars[i].position.y,
+                                                                                    point_link_stars[i].position.z};
+                
+                // hemisphere 2 at cylinder ends
+                hemisphere_radii(0) = Sa_min_perp.data;
+                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                                                hemisphere_radii,
+                                                i,
+                                                "hemisphere2_strategy_1");
+            }
+            //Strategy 2 part
+
+            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
+                
+                // Blue tube
+
+                // cylinder between current pose and applied ref
+                cylinder_startendpoints.block(0,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_current_poses[i].position.x,
+                                                                                    uav_current_poses[i].position.y,
+                                                                                    uav_current_poses[i].position.z};
+                cylinder_startendpoints.block(3,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_applied_ref[0][i],
+                                                                                    uav_applied_ref[1][i],
+                                                                                    uav_applied_ref[2][i]};
+                cylinder_radii(0) = Sa_min_perp.data;
+                visualisation_rviz.changeMarkersColor(color_cylinder_strategy_2[0], 
+                                                    color_cylinder_strategy_2[1], 
+                                                    color_cylinder_strategy_2[2], 
+                                                    color_cylinder_strategy_2[3]);
+                visualisation_rviz.addOneCylinder(cylinder_startendpoints,
+                                                cylinder_radii,
+                                                i,
+                                                "cylinder_strategy_2");
+                
+                // hemisphere 1 at cylinder end
+                hemisphere_radii(0) = Sa_min_perp.data;
+                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                                                hemisphere_radii,
+                                                i,
+                                                "hemisphere1_strategy_2");
+                
+                // hemisphere 2 at cylinder end
+                cylinder_startendpoints.block(0,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_applied_ref[0][i],
+                                                                                    uav_applied_ref[1][i],
+                                                                                    uav_applied_ref[2][i]};
+                cylinder_startendpoints.block(3,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_current_poses[i].position.x,
+                                                                                    uav_current_poses[i].position.y,
+                                                                                    uav_current_poses[i].position.z};
+                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                                                hemisphere_radii,
+                                                i,
+                                                "hemisphere2_strategy_2");
+            }
+
+            //Strategy 3 part
+            if(_DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 5){
+
+                // Orange tube
+
+                // cylinder3 between current pose and applied ref
+                cylinder_startendpoints.block(0,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_current_poses[i].position.x,
+                                                                                    uav_current_poses[i].position.y,
+                                                                                    uav_current_poses[i].position.z};
+                cylinder_startendpoints.block(3,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_applied_ref[0][i],
+                                                                                    uav_applied_ref[1][i],
+                                                                                    uav_applied_ref[2][i]};
+                cylinder_radii(0) = future_tubes[i].min_radius;
+                visualisation_rviz.changeMarkersColor(color_cylinder_strategy_3[0], 
+                                                    color_cylinder_strategy_3[1], 
+                                                    color_cylinder_strategy_3[2], 
+                                                    color_cylinder_strategy_3[3]);
+                visualisation_rviz.addOneCylinder(cylinder_startendpoints,
+                                                cylinder_radii,
+                                                i,
+                                                "cylinder_strategy_3");
+                
+                // hemisphere 1 at cylinder end
+                hemisphere_radii(0) = future_tubes[i].min_radius;
+                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                                                hemisphere_radii,
+                                                i,
+                                                "hemisphere1_strategy_3");
+
+                // hemisphere 2 at cylinder end
+                cylinder_startendpoints.block(0,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_applied_ref[0][i],
+                                                                                    uav_applied_ref[1][i],
+                                                                                    uav_applied_ref[2][i]};
+                cylinder_startendpoints.block(3,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_current_poses[i].position.x,
+                                                                                    uav_current_poses[i].position.y,
+                                                                                    uav_current_poses[i].position.z};
+                hemisphere_radii(0) = future_tubes[i].min_radius;
+                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                                                hemisphere_radii,
+                                                i,
+                                                "hemisphere2_strategy_3");
+            }
+            //Strategy 4 part
+            if(_DERG_strategy_id_.data == 4){
+                
+                // Orange tube with orange cylinder and red hemispheres
+
+                // cylinder3 between point p0 and point p1
+                cylinder_startendpoints.block(0,0,3,1) = Eigen::Matrix<double, 3, 1> {future_tubes[i].p0.x,
+                                                                                    future_tubes[i].p0.y,
+                                                                                    future_tubes[i].p0.z};
+                cylinder_startendpoints.block(3,0,3,1) = Eigen::Matrix<double, 3, 1> {future_tubes[i].p1.x,
+                                                                                    future_tubes[i].p1.y,
+                                                                                    future_tubes[i].p1.z};
+                cylinder_radii(0) = future_tubes[i].min_radius;
+                visualisation_rviz.changeMarkersColor(color_cylinder_strategy_4[0], 
+                                                    color_cylinder_strategy_4[1], 
+                                                    color_cylinder_strategy_4[2], 
+                                                    color_cylinder_strategy_4[3]);
+                visualisation_rviz.addOneCylinder(cylinder_startendpoints,
+                                                cylinder_radii,
+                                                i,
+                                                "cylinder_strategy_4");
+
+                // hemisphere 1 at cylinder end
+                visualisation_rviz.changeMarkersColor(color_hemisphere1_strategy_4[0], 
+                                                    color_hemisphere1_strategy_4[1], 
+                                                    color_hemisphere1_strategy_4[2], 
+                                                    color_hemisphere1_strategy_4[3]);
+                hemisphere_radii(0) = future_tubes[i].min_radius;
+                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                                                hemisphere_radii,
+                                                i,
+                                                "hemisphere1_strategy_4");
+
+                // hemisphere 2 at cylinder end
+                visualisation_rviz.changeMarkersColor(color_hemisphere2_strategy_4[0], 
+                                                    color_hemisphere2_strategy_4[1], 
+                                                    color_hemisphere2_strategy_4[2], 
+                                                    color_hemisphere2_strategy_4[3]);
+                cylinder_startendpoints.block(0,0,3,1) = Eigen::Matrix<double, 3, 1> {future_tubes[i].p1.x,
+                                                                                    future_tubes[i].p1.y,
+                                                                                    future_tubes[i].p1.z};
+                cylinder_startendpoints.block(3,0,3,1) = Eigen::Matrix<double, 3, 1> {future_tubes[i].p0.x,
+                                                                                    future_tubes[i].p0.y,
+                                                                                    future_tubes[i].p0.z};
+                hemisphere_radii(0) = future_tubes[i].min_radius;
+                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                                                hemisphere_radii,
+                                                i,
+                                                "hemisphere2_strategy_4");
+            }
+
 
         }
         ros::spinOnce();
@@ -281,13 +544,17 @@ void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg){
 
 void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number){
     predicted_traj.points = msg -> points;
+    predicted_trajectories[uav_number-1].points.resize(predicted_traj.points.size());
     for(int i=0; i<predicted_traj.points.size(); i++){
-        predicted_trajectories[i][0][uav_number-1] = predicted_traj.points[i].x;
-        predicted_trajectories[i][1][uav_number-1] = predicted_traj.points[i].y;
-        predicted_trajectories[i][2][uav_number-1] = predicted_traj.points[i].z;
-        //ROS_INFO_STREAM("x : " << predicted_trajectories[i][0][uav_number-1]);
+        predicted_trajectories[uav_number-1].points[i] = predicted_traj.points[i];
     }
-    test2 = true;
+    ROS_INFO_STREAM("uav number :" << uav_number);
+    ROS_INFO_STREAM("number of uav :" << diagnostics.active_vehicles.size());
+    
+    if(uav_number==diagnostics.active_vehicles.size())
+        test2 = true;
+    if(uav_number==diagnostics.active_vehicles.size()-1)
+        test3 = true;
 }
 
 void GoalPoseCallback(const mrs_msgs::ReferenceStamped::ConstPtr& msg, int uav_number){
@@ -339,4 +606,36 @@ void SaPerpCallback(const std_msgs::Int32::ConstPtr& msg){
 void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg){
     tube_min_radius.data = msg -> data;
     //ROS_INFO_STREAM("tube_min_radius = " << tube_min_radius.data);
+}
+
+void PublishFrame(std::vector<geometry_msgs::PoseStamped> frame_pose,const std::vector<mrs_msgs::Reference>& goal_pose, int number_uav){
+    geometry_msgs::PoseArray frame_poses;
+
+    frame_poses.header.seq = frame_pose[0].header.seq;
+    frame_poses.header.stamp = ros::Time::now();
+    frame_poses.header.frame_id = "/common_origin";
+
+    for(int i=0; i<number_uav; i++){
+        FrameOrientation(frame_pose[i].pose, goal_pose[i]);
+        frame_pose[i].pose.position = goal_pose[i].position;
+        frame_poses.poses.push_back(frame_pose[i].pose);
+           
+    }
+    
+    frame_publisher_.publish(frame_poses);
+}
+
+void FrameOrientation(geometry_msgs::Pose& frame, const mrs_msgs::Reference& goal_pose){
+
+    Eigen::Vector3d frame_z_direction(0., 0., goal_pose.heading);
+    Eigen::Vector3d origin_z_direction(0., 0., 1.);
+    frame_z_direction.normalize();
+    Eigen::Vector3d axis;
+    axis = origin_z_direction.cross(frame_z_direction);
+    axis.normalize();
+    double angle = acos(frame_z_direction.dot(origin_z_direction));
+    frame.orientation.x = axis.x() * sin(angle/2);
+    frame.orientation.y = axis.y() * sin(angle/2);
+    frame.orientation.z = axis.z() * sin(angle/2);
+    frame.orientation.w = cos(angle/2);
 }

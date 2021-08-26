@@ -37,6 +37,52 @@ class ERGVisualization{
                             const Eigen::Matrix<double, 1, 1>& cylinder_radii,
                             int id,
                             const std::string& ns);
+        void addOneHemisphere(const Eigen::Matrix<double, 6, 1>& cylinder_startendpoint,
+                                      const Eigen::Matrix<double, 1, 1>& hemisphere_radii,
+                                      int id,
+                                      const std::string& ns);
+        void addOneTrajectoryLine(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+                                      int id,
+                                      int number_of_point,
+                                      const std::string& ns,
+                                      double width);
+        void addOneTrajectorySpheres(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+                                      int id,
+                                      int number_of_point,
+                                      const std::string& ns,
+                                      double traj_sphere_radii);
+        void addRedLines(const std::vector<geometry_msgs::Pose>& current_poses,
+                                   const int& id,
+                                   const std::string& ns,
+                                   const double& width,
+                                   const double& radius,
+                                   const int& number_uav);
+        void CalculNorm(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, double& norm);
+        void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, double& norm);
+        void ShortestDistanceLines(const std::vector<mrs_msgs::FutureTrajectory>& point,
+                                             const int& id,
+                                             const std::string& ns,
+                                             const double& width,
+                                             const double& radius,
+                                             const int& number_uav,
+                                             const std::vector<float> color_shortest_distance_lines,
+                                             const std::vector<float> color_desired_ref_sphere);
+        void CalculNormMin(const std::vector<mrs_msgs::FutureTrajectory>& point,
+                                     const int& uav1, 
+                                     const int& uav2, 
+                                     double& norm_min, 
+                                     int& ind);
+        void addOneTrajectoryArrow(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+                                            const int& id,
+                                            const int& number_of_point,
+                                            const std::string& ns,
+                                            const double& shaft,
+                                            const double& head);
+        void addTextLabel(const Eigen::Matrix<double, 3, 1>& text_position,
+                                    const int& id,
+                                    const std::string& ns,
+                                    const std::string& text,
+                                    const double& scalez);  
         void publishMarkers(ros::Publisher);
 
         void changeMarkersColor(float r, float g, float b, float a);
@@ -60,3 +106,6 @@ void FutureTubeCallback(const trackers_brubotics::FutureTrajectoryTube::ConstPtr
 void SaCallback(const std_msgs::Int32::ConstPtr& msg);
 void SaPerpCallback(const std_msgs::Int32::ConstPtr& msg);
 void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg);
+
+void PublishFrame(std::vector<geometry_msgs::PoseStamped> frame_pose,const std::vector<mrs_msgs::Reference>& goal_pose, int number_uav);
+void FrameOrientation(geometry_msgs::Pose& frame, const mrs_msgs::Reference& goal_pose);

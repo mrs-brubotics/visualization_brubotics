@@ -82,6 +82,361 @@ void ERGVisualization::addOneCylinder(const Eigen::Matrix<double, 6, 1>& cylinde
 
 }
 
+void ERGVisualization::addOneHemisphere(const Eigen::Matrix<double, 6, 1>& cylinder_startendpoint,
+                                      const Eigen::Matrix<double, 1, 1>& hemisphere_radii,
+                                      int id,
+                                      const std::string& ns){
+    visualization_msgs::Marker markher_hemisphere;
+    Eigen::Matrix<double, 3, 1> cylinder_startpoint = cylinder_startendpoint.block(0,0,3,1);
+    Eigen::Matrix<double, 3, 1> cylinder_endpoint = cylinder_startendpoint.block(3,0,3,1);
+
+    markher_hemisphere.header.frame_id = frame_id;
+    markher_hemisphere.header.stamp = ros::Time::now();
+    markher_hemisphere.ns = ns;
+    markher_hemisphere.id = id;
+    markher_hemisphere.type = visualization_msgs::Marker::MESH_RESOURCE; 
+    markher_hemisphere.mesh_resource = "package://visualization_brubotics/meshes/HemisphereShell_10mm.stl";
+    markher_hemisphere.action = visualization_msgs::Marker::ADD;
+    markher_hemisphere.pose.position.x = cylinder_startpoint[0]; 
+    markher_hemisphere.pose.position.y = cylinder_startpoint[1];
+    markher_hemisphere.pose.position.z = cylinder_startpoint[2];
+
+    Eigen::Vector3d cylinder_z_direction(cylinder_startpoint-cylinder_endpoint);
+    Eigen::Vector3d origin_z_direction(0., 0., 1.);
+    cylinder_z_direction.normalize();
+    Eigen::Vector3d axis;
+    axis = origin_z_direction.cross(cylinder_z_direction);
+    axis.normalize();
+    double angle = acos(cylinder_z_direction.dot(origin_z_direction));
+    double qx = axis.x() * sin(angle/2);
+    double qy = axis.y() * sin(angle/2);
+    double qz = axis.z() * sin(angle/2);
+    double qw = cos(angle/2);
+    double qnorm = sqrt(qx*qx + qy*qy + qz*qz + qw *qw);
+    markher_hemisphere.pose.orientation.x = qx/qnorm;
+    markher_hemisphere.pose.orientation.y = qy/qnorm;
+    markher_hemisphere.pose.orientation.z = qz/qnorm;
+    markher_hemisphere.pose.orientation.w = qw/qnorm;
+    
+    markher_hemisphere.scale.x = 0.001*hemisphere_radii[0];
+    markher_hemisphere.scale.y = 0.001*hemisphere_radii[0];
+    markher_hemisphere.scale.z = 0.001*hemisphere_radii[0];
+    markher_hemisphere.color.r = color.r;
+    markher_hemisphere.color.g = color.g;
+    markher_hemisphere.color.b = color.b;
+    markher_hemisphere.color.a = color.a;
+    markher_hemisphere.lifetime = ros::Duration();
+    marker_array.markers.push_back(markher_hemisphere);
+
+}
+void ERGVisualization::addOneTrajectoryLine(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+                                            int id,
+                                            int number_of_point,
+                                            const std::string& ns,
+                                            double width){
+    visualization_msgs::Marker marker_trajectory_l;
+    geometry_msgs::Point p_traj_l;
+    int step;
+
+    marker_trajectory_l.header.frame_id = frame_id;
+    marker_trajectory_l.header.stamp = ros::Time::now();
+    marker_trajectory_l.ns = ns;
+    marker_trajectory_l.id = id;
+    marker_trajectory_l.type = visualization_msgs::Marker::LINE_STRIP; 
+    marker_trajectory_l.action = visualization_msgs::Marker::ADD;
+    step = predicted_traj[id].points.size() / number_of_point;
+    
+    for(int j=0; j<(predicted_traj[id].points.size() - step); j+=step){
+        p_traj_l.x = (double) predicted_traj[id].points[j].x;
+        p_traj_l.y = (double) predicted_traj[id].points[j].y;
+        p_traj_l.z = (double) predicted_traj[id].points[j].z;
+        marker_trajectory_l.points.push_back(p_traj_l);
+    }
+
+    p_traj_l.x = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].x;
+    p_traj_l.y = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].y;
+    p_traj_l.z = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].z;
+    marker_trajectory_l.points.push_back(p_traj_l);
+
+    marker_trajectory_l.scale.x = width; // width of the line strip
+    marker_trajectory_l.color.r = color.r;
+    marker_trajectory_l.color.g = color.g;
+    marker_trajectory_l.color.b = color.b;
+    marker_trajectory_l.color.a = color.a;
+    marker_trajectory_l.lifetime = ros::Duration();
+    marker_array.markers.push_back(marker_trajectory_l);
+
+}
+void ERGVisualization::addOneTrajectorySpheres(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+                                            int id,
+                                            int number_of_point,
+                                            const std::string& ns,
+                                            double traj_sphere_radii){
+    visualization_msgs::Marker marker_trajectory_s;
+    geometry_msgs::Point p_traj_s;
+    int step;
+    marker_trajectory_s.header.frame_id = frame_id;
+    marker_trajectory_s.header.stamp = ros::Time::now();
+    marker_trajectory_s.ns = ns;
+    marker_trajectory_s.id = id;
+    marker_trajectory_s.type = visualization_msgs::Marker::SPHERE_LIST; 
+    marker_trajectory_s.action = visualization_msgs::Marker::ADD;
+    step = predicted_traj[id].points.size() / number_of_point;
+    marker_trajectory_s.pose.position.x = 0;
+    marker_trajectory_s.pose.position.y = 0;
+    marker_trajectory_s.pose.position.z = 0;
+    for(int j=0; j<(predicted_traj[id].points.size() - step); j+=step){
+        p_traj_s.x = (double) predicted_traj[id].points[j].x;
+        p_traj_s.y = (double) predicted_traj[id].points[j].y;
+        p_traj_s.z = (double) predicted_traj[id].points[j].z;
+        marker_trajectory_s.points.push_back(p_traj_s);
+    }
+    p_traj_s.x = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].x;
+    p_traj_s.y = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].y;
+    p_traj_s.z = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].z;
+    marker_trajectory_s.points.push_back(p_traj_s);
+    marker_trajectory_s.scale.x = 2*traj_sphere_radii;    // radius of the spheres
+    marker_trajectory_s.scale.y = 2*traj_sphere_radii;    // radius
+    marker_trajectory_s.scale.z = 2*traj_sphere_radii;    // radius
+    marker_trajectory_s.color.r = color.r;
+    marker_trajectory_s.color.g = color.g;
+    marker_trajectory_s.color.b = color.b;
+    marker_trajectory_s.color.a = color.a;
+    marker_trajectory_s.lifetime = ros::Duration();
+    marker_array.markers.push_back(marker_trajectory_s);
+
+}
+
+void ERGVisualization::addOneTrajectoryArrow(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+                                            const int& id,
+                                            const int& number_of_point,
+                                            const std::string& ns,
+                                            const double& shaft,
+                                            const double& head){
+    visualization_msgs::Marker marker_trajectory_a;
+    geometry_msgs::Point p_traj_a;
+    int step;
+    int arrow_index=0;
+    
+    marker_trajectory_a.header.frame_id = frame_id;
+    marker_trajectory_a.header.stamp = ros::Time::now();
+    marker_trajectory_a.ns = ns;
+    marker_trajectory_a.pose.position.x = 0.;
+    marker_trajectory_a.pose.position.y = 0.;
+    marker_trajectory_a.pose.position.z = 0.;
+    marker_trajectory_a.pose.orientation.x = 0.;
+    marker_trajectory_a.pose.orientation.y = 0.;
+    marker_trajectory_a.pose.orientation.z = 0.;
+    marker_trajectory_a.pose.orientation.w = 1.0;
+
+    marker_trajectory_a.color.r = color.r;
+    marker_trajectory_a.color.g = color.g;
+    marker_trajectory_a.color.b = color.b;
+    marker_trajectory_a.color.a = color.a;
+    marker_trajectory_a.lifetime = ros::Duration();
+    marker_trajectory_a.scale.x = shaft;    // shaft diameter
+    marker_trajectory_a.scale.y = head;    // head diameter
+            // head length (=0 is default length of an Rviz arrow)
+
+    step = predicted_traj[id].points.size() / number_of_point;
+    
+    for(int j=0; j<(predicted_traj[id].points.size() - step); j+=2*step){
+        marker_trajectory_a.points.clear();
+        marker_trajectory_a.id = arrow_index+1000*id;
+        arrow_index += 1;
+        for(int i=0; i<2; i++){
+            p_traj_a.x = predicted_traj[id].points[j+i*step].x;
+            p_traj_a.y = predicted_traj[id].points[j+i*step].y;
+            p_traj_a.z = predicted_traj[id].points[j+i*step].z;
+            marker_trajectory_a.points.push_back(p_traj_a);
+        }
+        marker_array.markers.push_back(marker_trajectory_a);
+    }
+}
+
+void ERGVisualization::addRedLines(const std::vector<geometry_msgs::Pose>& current_poses,
+                                   const int& id,
+                                   const std::string& ns,
+                                   const double& width,
+                                   const double& radius,
+                                   const int& number_uav){
+    visualization_msgs::Marker marker_redlines;
+    geometry_msgs::Point p1, p2, p_new;
+    double norm;
+    for(int i=0; i<(number_uav-1); i++){
+        
+        for(int j=i+1; j<number_uav; j++){    
+            marker_redlines.header.frame_id = frame_id;
+            marker_redlines.header.stamp = ros::Time::now();
+            marker_redlines.ns = ns;
+            marker_redlines.id = i*100+j;
+            marker_redlines.type = visualization_msgs::Marker::LINE_STRIP; 
+            marker_redlines.action = visualization_msgs::Marker::ADD;
+            marker_redlines.scale.x = width; // width
+            marker_redlines.color.r = color.r;
+            marker_redlines.color.g = color.g;
+            marker_redlines.color.b = color.b;
+            marker_redlines.color.a = color.a;
+
+            p1.x = current_poses[i].position.x;
+            p1.y = current_poses[i].position.y;
+            p1.z = current_poses[i].position.z;
+
+            p2.x = current_poses[j].position.x;
+            p2.y = current_poses[j].position.y;
+            p2.z = current_poses[j].position.z;
+
+            CalculNorm(p1, p2, norm);
+
+            GiveTranslatedPoint(p1,p2,p_new,radius,norm);
+            marker_redlines.points.push_back(p_new);
+
+            GiveTranslatedPoint(p2,p1,p_new,radius,norm);
+            marker_redlines.points.push_back(p_new);
+
+            marker_array.markers.push_back(marker_redlines);
+            marker_redlines.points.clear();
+        }
+    }
+}
+
+void ERGVisualization::CalculNorm(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, double& norm){
+    norm = sqrt(  (p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y) + (p1.z - p2.z)*(p1.z - p2.z) );
+}
+
+void ERGVisualization::GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, double& norm){
+    new_p.x = p1.x + distance * (p2.x-p1.x)/norm;
+    new_p.y = p1.y + distance * (p2.y-p1.y)/norm;
+    new_p.z = p1.z + distance * (p2.z-p1.z)/norm;
+}
+
+void ERGVisualization::ShortestDistanceLines(const std::vector<mrs_msgs::FutureTrajectory>& point,
+                                             const int& id,
+                                             const std::string& ns,
+                                             const double& width,
+                                             const double& radius,
+                                             const int& number_uav,
+                                             const std::vector<float> color_shortest_distance_lines,
+                                             const std::vector<float> color_desired_ref_sphere){
+    visualization_msgs::Marker marker_shortestlines;
+    double norm_min;
+    int ind=0;
+    Eigen::Matrix<double, 3, 1> c;
+    Eigen::Matrix<double, 1, 1> sphere_radii;
+    geometry_msgs::Point p1, p2, p_new1, p_new2;
+    
+    for(int i=0; i<(number_uav-1); i++){
+
+        for(int j=i+1; j<number_uav; j++){
+            // calculate the minimal norm and return index
+            CalculNormMin(point,i,j,norm_min,ind);
+            p1.x = point[i].points[ind].x;
+            p1.y = point[i].points[ind].y;
+            p1.z = point[i].points[ind].z;
+                
+            p2.x = point[j].points[ind].x;
+            p2.y = point[j].points[ind].y;
+            p2.z = point[j].points[ind].z;
+            
+            marker_shortestlines.header.frame_id = frame_id;
+            marker_shortestlines.header.stamp = ros::Time::now();
+            marker_shortestlines.ns = ns;
+            marker_shortestlines.id = i*100+j;
+            marker_shortestlines.type = visualization_msgs::Marker::LINE_STRIP; 
+            marker_shortestlines.action = visualization_msgs::Marker::ADD;
+            marker_shortestlines.scale.x = width; // width
+            changeMarkersColor(color_shortest_distance_lines[0], color_shortest_distance_lines[1], color_shortest_distance_lines[2], color_shortest_distance_lines[3]);
+            marker_shortestlines.color.r = color.r;
+            marker_shortestlines.color.g = color.g;
+            marker_shortestlines.color.b = color.b;
+            marker_shortestlines.color.a = color.a;
+            // calculate the coordinates of the desired ref position translated by radius Ra
+            GiveTranslatedPoint(p1,p2,p_new1,radius,norm_min);
+            GiveTranslatedPoint(p2,p1,p_new2,radius,norm_min);
+
+            marker_shortestlines.points.push_back(p_new1);
+            marker_shortestlines.points.push_back(p_new2);
+
+            marker_array.markers.push_back(marker_shortestlines);
+
+            // spheres at desired reference pose
+            c = {p1.x,p1.y,p1.z};
+            sphere_radii(0) = radius;
+            changeMarkersColor(color_desired_ref_sphere[0], color_desired_ref_sphere[1], color_desired_ref_sphere[2], color_desired_ref_sphere[3]);
+            addOneSphere(c,
+                         sphere_radii,
+                         i*100+j,
+                         "desired_ref_sphere");
+            
+            c = {p2.x,p2.y,p2.z};
+            addOneSphere(c,
+                         sphere_radii,
+                         i*100+j+100000,
+                         "desired_ref_sphere");
+        }
+    }
+}
+
+void ERGVisualization::CalculNormMin(const std::vector<mrs_msgs::FutureTrajectory>& point,
+                                     const int& uav1, 
+                                     const int& uav2, 
+                                     double& norm_min, 
+                                     int& ind){
+    double norm;
+    geometry_msgs::Point ptest1, ptest2;
+    ptest1.x = point[uav1].points[0].x;
+    ptest1.y = point[uav1].points[0].y;
+    ptest1.z = point[uav1].points[0].z;
+                
+    ptest2.x = point[uav2].points[0].x;
+    ptest2.y = point[uav2].points[0].y;
+    ptest2.z = point[uav2].points[0].z;
+    CalculNorm(ptest1, ptest2, norm_min);
+    for(int j=1; j<point[uav1].points.size(); j++){
+            
+            ptest1.x = point[uav1].points[j].x;
+            ptest1.y = point[uav1].points[j].y;
+            ptest1.z = point[uav1].points[j].z;
+                
+            ptest2.x = point[uav2].points[j].x;
+            ptest2.y = point[uav2].points[j].y;
+            ptest2.z = point[uav2].points[j].z;
+            //ROS_INFO_STREAM("p1 : " << ptest1 << " p2 : " << ptest2);
+            CalculNorm(ptest1, ptest2, norm);
+
+            if(norm < norm_min){
+                norm_min = norm;
+                ind = j;
+            }
+        }
+}
+
+void ERGVisualization::addTextLabel(const Eigen::Matrix<double, 3, 1>& text_position,
+                                    const int& id,
+                                    const std::string& ns,
+                                    const std::string& text,
+                                    const double& scalez){
+    visualization_msgs::Marker marker_text;
+    marker_text.header.frame_id = frame_id;
+    marker_text.header.stamp = ros::Time::now();
+    marker_text.ns = ns;
+    marker_text.id = id;
+    marker_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING; 
+    marker_text.action = visualization_msgs::Marker::ADD;
+    marker_text.text = text;
+    marker_text.pose.position.x = text_position(0,0); 
+    marker_text.pose.position.y = text_position(1,0); 
+    marker_text.pose.position.z = text_position(2,0);
+    marker_text.scale.z = scalez;
+    marker_text.color.r = color.r;
+    marker_text.color.g = color.g;
+    marker_text.color.b = color.b;
+    marker_text.color.a = color.a;
+    marker_text.lifetime = ros::Duration();
+    marker_array.markers.push_back(marker_text); 
+    
+}
+
 void ERGVisualization::changeMarkersColor(float r, float g, float b, float a){
     color.r = r;
     color.g = g;
