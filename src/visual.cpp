@@ -1,6 +1,6 @@
 #include <visual.h>
 
-void ERGVisualization::addOneSphere(const Eigen::Matrix<double, 3, 1>& sphere_center,
+void DERGVisualization::addOneSphere(const Eigen::Matrix<double, 3, 1>& sphere_center,
                                     const Eigen::Matrix<double, 1, 1>& sphere_radii,
                                     int id,
                                     const std::string& ns){
@@ -31,7 +31,7 @@ void ERGVisualization::addOneSphere(const Eigen::Matrix<double, 3, 1>& sphere_ce
 
 }
 
-void ERGVisualization::addOneCylinder(const Eigen::Matrix<double, 6, 1>& cylinder_startendpoint,
+void DERGVisualization::addOneCylinder(const Eigen::Matrix<double, 6, 1>& cylinder_startendpoint,
                                       const Eigen::Matrix<double, 1, 1>& cylinder_radii,
                                       int id,
                                       const std::string& ns){
@@ -82,7 +82,7 @@ void ERGVisualization::addOneCylinder(const Eigen::Matrix<double, 6, 1>& cylinde
 
 }
 
-void ERGVisualization::addOneHemisphere(const Eigen::Matrix<double, 6, 1>& cylinder_startendpoint,
+void DERGVisualization::addOneHemisphere(const Eigen::Matrix<double, 6, 1>& cylinder_startendpoint,
                                       const Eigen::Matrix<double, 1, 1>& hemisphere_radii,
                                       int id,
                                       const std::string& ns){
@@ -129,7 +129,7 @@ void ERGVisualization::addOneHemisphere(const Eigen::Matrix<double, 6, 1>& cylin
     marker_array.markers.push_back(markher_hemisphere);
 
 }
-void ERGVisualization::addOneTrajectoryLine(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+void DERGVisualization::addOneTrajectoryLine(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
                                             int id,
                                             int number_of_point,
                                             const std::string& ns,
@@ -167,7 +167,7 @@ void ERGVisualization::addOneTrajectoryLine(const std::vector<mrs_msgs::FutureTr
     marker_array.markers.push_back(marker_trajectory_l);
 
 }
-void ERGVisualization::addOneTrajectorySpheres(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+void DERGVisualization::addOneTrajectorySpheres(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
                                             int id,
                                             int number_of_point,
                                             const std::string& ns,
@@ -207,7 +207,7 @@ void ERGVisualization::addOneTrajectorySpheres(const std::vector<mrs_msgs::Futur
 
 }
 
-void ERGVisualization::addOneTrajectoryArrow(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+void DERGVisualization::addOneTrajectoryArrow(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
                                             const int& id,
                                             const int& number_of_point,
                                             const std::string& ns,
@@ -254,30 +254,18 @@ void ERGVisualization::addOneTrajectoryArrow(const std::vector<mrs_msgs::FutureT
     }
 }
 
-void ERGVisualization::addRedLines(const std::vector<geometry_msgs::Pose>& current_poses,
+void DERGVisualization::addCurrentPoseLines(const std::vector<geometry_msgs::Pose>& current_poses,
                                    const int& id,
                                    const std::string& ns,
                                    const double& width,
                                    const double& radius,
                                    const int& number_uav){
-    visualization_msgs::Marker marker_redlines;
+    std::vector<geometry_msgs::Point> v(2);
     geometry_msgs::Point p1, p2, p_new;
     double norm;
     for(int i=0; i<(number_uav-1); i++){
         
         for(int j=i+1; j<number_uav; j++){    
-            marker_redlines.header.frame_id = frame_id;
-            marker_redlines.header.stamp = ros::Time::now();
-            marker_redlines.ns = ns;
-            marker_redlines.id = i*100+j;
-            marker_redlines.type = visualization_msgs::Marker::LINE_STRIP; 
-            marker_redlines.action = visualization_msgs::Marker::ADD;
-            marker_redlines.scale.x = width; // width
-            marker_redlines.color.r = color.r;
-            marker_redlines.color.g = color.g;
-            marker_redlines.color.b = color.b;
-            marker_redlines.color.a = color.a;
-
             p1.x = current_poses[i].position.x;
             p1.y = current_poses[i].position.y;
             p1.z = current_poses[i].position.z;
@@ -289,28 +277,50 @@ void ERGVisualization::addRedLines(const std::vector<geometry_msgs::Pose>& curre
             CalculNorm(p1, p2, norm);
 
             GiveTranslatedPoint(p1,p2,p_new,radius,norm);
-            marker_redlines.points.push_back(p_new);
-
+            v[0]=p_new;
             GiveTranslatedPoint(p2,p1,p_new,radius,norm);
-            marker_redlines.points.push_back(p_new);
+            v[1]=p_new;
 
-            marker_array.markers.push_back(marker_redlines);
-            marker_redlines.points.clear();
+            addLine(v,
+                    i*100+j,
+                    ns,
+                    width);
         }
     }
 }
 
-void ERGVisualization::CalculNorm(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, double& norm){
+void DERGVisualization::CalculNorm(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, double& norm){
     norm = sqrt(  (p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y) + (p1.z - p2.z)*(p1.z - p2.z) );
 }
 
-void ERGVisualization::GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, double& norm){
+void DERGVisualization::GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, double& norm){
     new_p.x = p1.x + distance * (p2.x-p1.x)/norm;
     new_p.y = p1.y + distance * (p2.y-p1.y)/norm;
     new_p.z = p1.z + distance * (p2.z-p1.z)/norm;
 }
+void DERGVisualization::addLine(std::vector<geometry_msgs::Point> v,
+                               const int& id,
+                               const std::string& ns,
+                               const double& width){
+    visualization_msgs::Marker marker_line;
 
-void ERGVisualization::ShortestDistanceLines(const std::vector<mrs_msgs::FutureTrajectory>& point,
+    marker_line.header.frame_id = frame_id;
+    marker_line.header.stamp = ros::Time::now();
+    marker_line.ns = ns;
+    marker_line.id = id;
+    marker_line.color.r = color.r;
+    marker_line.color.g = color.g;
+    marker_line.color.b = color.b;
+    marker_line.color.a = color.a;
+    marker_line.type = visualization_msgs::Marker::LINE_STRIP; 
+    marker_line.action = visualization_msgs::Marker::ADD;
+    marker_line.scale.x = width; // width
+    for(int i=0; i<v.size(); i++){
+        marker_line.points.push_back(v[i]);
+    }
+    marker_array.markers.push_back(marker_line);
+}
+void DERGVisualization::ShortestDistanceLines(const std::vector<mrs_msgs::FutureTrajectory>& point,
                                              const int& id,
                                              const std::string& ns,
                                              const double& width,
@@ -318,7 +328,7 @@ void ERGVisualization::ShortestDistanceLines(const std::vector<mrs_msgs::FutureT
                                              const int& number_uav,
                                              const std::vector<float> color_shortest_distance_lines,
                                              const std::vector<float> color_desired_ref_sphere){
-    visualization_msgs::Marker marker_shortestlines;
+    std::vector<geometry_msgs::Point> v;
     double norm_min;
     int ind=0;
     Eigen::Matrix<double, 3, 1> c;
@@ -338,27 +348,18 @@ void ERGVisualization::ShortestDistanceLines(const std::vector<mrs_msgs::FutureT
             p2.y = point[j].points[ind].y;
             p2.z = point[j].points[ind].z;
             
-            marker_shortestlines.header.frame_id = frame_id;
-            marker_shortestlines.header.stamp = ros::Time::now();
-            marker_shortestlines.ns = ns;
-            marker_shortestlines.id = i*100+j;
-            marker_shortestlines.type = visualization_msgs::Marker::LINE_STRIP; 
-            marker_shortestlines.action = visualization_msgs::Marker::ADD;
-            marker_shortestlines.scale.x = width; // width
-            changeMarkersColor(color_shortest_distance_lines[0], color_shortest_distance_lines[1], color_shortest_distance_lines[2], color_shortest_distance_lines[3]);
-            marker_shortestlines.color.r = color.r;
-            marker_shortestlines.color.g = color.g;
-            marker_shortestlines.color.b = color.b;
-            marker_shortestlines.color.a = color.a;
+            
             // calculate the coordinates of the desired ref position translated by radius Ra
             GiveTranslatedPoint(p1,p2,p_new1,radius,norm_min);
             GiveTranslatedPoint(p2,p1,p_new2,radius,norm_min);
 
-            marker_shortestlines.points.push_back(p_new1);
-            marker_shortestlines.points.push_back(p_new2);
-
-            marker_array.markers.push_back(marker_shortestlines);
-
+            changeMarkersColor(color_shortest_distance_lines[0], color_shortest_distance_lines[1], color_shortest_distance_lines[2], color_shortest_distance_lines[3]);
+            v = {p_new1,p_new2};
+            addLine(v,
+                    i*100+j,
+                    ns,
+                    width);
+            
             // spheres at desired reference pose
             c = {p1.x,p1.y,p1.z};
             sphere_radii(0) = radius;
@@ -377,7 +378,7 @@ void ERGVisualization::ShortestDistanceLines(const std::vector<mrs_msgs::FutureT
     }
 }
 
-void ERGVisualization::CalculNormMin(const std::vector<mrs_msgs::FutureTrajectory>& point,
+void DERGVisualization::CalculNormMin(const std::vector<mrs_msgs::FutureTrajectory>& point,
                                      const int& uav1, 
                                      const int& uav2, 
                                      double& norm_min, 
@@ -411,7 +412,7 @@ void ERGVisualization::CalculNormMin(const std::vector<mrs_msgs::FutureTrajector
         }
 }
 
-void ERGVisualization::addTextLabel(const Eigen::Matrix<double, 3, 1>& text_position,
+void DERGVisualization::addTextLabel(const Eigen::Matrix<double, 3, 1>& text_position,
                                     const int& id,
                                     const std::string& ns,
                                     const std::string& text,
@@ -437,19 +438,19 @@ void ERGVisualization::addTextLabel(const Eigen::Matrix<double, 3, 1>& text_posi
     
 }
 
-void ERGVisualization::changeMarkersColor(float r, float g, float b, float a){
+void DERGVisualization::changeMarkersColor(float r, float g, float b, float a){
     color.r = r;
     color.g = g;
     color.b = b;
     color.a = a;
 }
 
-void ERGVisualization::publishMarkers(ros::Publisher publisher){
+void DERGVisualization::publishMarkers(ros::Publisher publisher){
     publisher.publish(marker_array);
     deleteAllMarkers();
 }
 
-ERGVisualization::ERGVisualization(std::string frame){
+DERGVisualization::DERGVisualization(std::string frame){
     color.r = 1;
     color.g = 0;
     color.b = 0;
@@ -457,6 +458,6 @@ ERGVisualization::ERGVisualization(std::string frame){
     frame_id = frame;
 }
 
-void ERGVisualization::deleteAllMarkers(){
+void DERGVisualization::deleteAllMarkers(){
     marker_array.markers.clear();
 }

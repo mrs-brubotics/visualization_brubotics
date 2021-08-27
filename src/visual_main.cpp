@@ -65,7 +65,7 @@ std::vector<float> color_current_pose_sphere(4);
 std::vector<float> color_applied_ref_sphere(4);
 std::vector<float> color_shortest_distance_lines(4);
 std::vector<float> color_trajectory(4);
-std::vector<float> color_red_lines(4);
+std::vector<float> color_line_between_current_positions(4);
 std::vector<float> color_desired_ref_sphere(4);
 std::vector<float> color_error_sphere(4);
 std::vector<float> color_strategy_1_cylinder_strategy_1(4);
@@ -76,8 +76,10 @@ std::vector<float> color_cylinder_strategy_4(4);
 std::vector<float> color_hemisphere1_strategy_4(4);
 std::vector<float> color_hemisphere2_strategy_4(4);
 std::vector<float> UAV_text_label(4);
+float trajectory_sphere_radius, trajectory_arrow_shaft_diameter, trajectory_arrow_head_diameter,
+        line_width, current_position_line_width, shortest_ditance_line_width, text_label_size;
 
-ERGVisualization visualisation_rviz("/common_origin"); //map is the frame in which you want to add your objects it is common_origin for the derg program
+DERGVisualization visualization_rviz("/common_origin"); //map is the frame in which you want to add your objects it is common_origin for the derg program
 
 int main(int argc, char** argv){
 
@@ -132,10 +134,10 @@ int main(int argc, char** argv){
     nh.getParam("/visualization_brubotics/strategy_0/error_sphere/g", color_error_sphere[1]);
     nh.getParam("/visualization_brubotics/strategy_0/error_sphere/b", color_error_sphere[2]);
     nh.getParam("/visualization_brubotics/strategy_0/error_sphere/alpha", color_error_sphere[3]);
-    nh.getParam("/visualization_brubotics/all_strategies/red_lines/r", color_red_lines[0]);
-    nh.getParam("/visualization_brubotics/all_strategies/red_lines/g", color_red_lines[1]);
-    nh.getParam("/visualization_brubotics/all_strategies/red_lines/b", color_red_lines[2]);
-    nh.getParam("/visualization_brubotics/all_strategies/red_lines/alpha", color_red_lines[3]);
+    nh.getParam("/visualization_brubotics/all_strategies/line_between_current_positions/r", color_line_between_current_positions[0]);
+    nh.getParam("/visualization_brubotics/all_strategies/line_between_current_positions/g", color_line_between_current_positions[1]);
+    nh.getParam("/visualization_brubotics/all_strategies/line_between_current_positions/b", color_line_between_current_positions[2]);
+    nh.getParam("/visualization_brubotics/all_strategies/line_between_current_positions/alpha", color_line_between_current_positions[3]);
     nh.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/r", color_shortest_distance_lines[0]);
     nh.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/g", color_shortest_distance_lines[1]);
     nh.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/b", color_shortest_distance_lines[2]);
@@ -172,11 +174,17 @@ int main(int argc, char** argv){
     nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/g", color_hemisphere2_strategy_4[1]);
     nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/b", color_hemisphere2_strategy_4[2]);
     nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/alpha", color_hemisphere2_strategy_4[3]);
-    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/r", UAV_text_label[0]);
-    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/g", UAV_text_label[1]);
-    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/b", UAV_text_label[2]);
-    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/alpha", UAV_text_label[3]);
-
+    nh.getParam("/visualization_brubotics/all_strategies/text_label/r", UAV_text_label[0]);
+    nh.getParam("/visualization_brubotics/all_strategies/text_label/g", UAV_text_label[1]);
+    nh.getParam("/visualization_brubotics/all_strategies/text_label/b", UAV_text_label[2]);
+    nh.getParam("/visualization_brubotics/all_strategies/text_label/alpha", UAV_text_label[3]);
+    nh.getParam("/visualization_brubotics/trajectory/spheres/radius", trajectory_sphere_radius);
+    nh.getParam("/visualization_brubotics/trajectory/arrow/shaft_diameter", trajectory_arrow_shaft_diameter);
+    nh.getParam("/visualization_brubotics/trajectory/arrow/head_diameter", trajectory_arrow_head_diameter);
+    nh.getParam("/visualization_brubotics/trajectory/line/width", line_width);
+    nh.getParam("/visualization_brubotics/current_position_line/width", current_position_line_width);
+    nh.getParam("/visualization_brubotics/shortest_ditance_line/width", shortest_ditance_line_width);
+    nh.getParam("/visualization_brubotics/text_label_size", text_label_size);
 
     // create subscribers
     std::vector<boost::function<void (const geometry_msgs::PoseArray::ConstPtr&)>> f1;
@@ -248,11 +256,11 @@ int main(int argc, char** argv){
                  uav_current_poses[i].position.y, 
                  uav_current_poses[i].position.z};
             sphere_radii(0) = Ra;
-            visualisation_rviz.changeMarkersColor(color_current_pose_sphere[0], 
+            visualization_rviz.changeMarkersColor(color_current_pose_sphere[0], 
                                                   color_current_pose_sphere[1], 
                                                   color_current_pose_sphere[2], 
                                                   color_current_pose_sphere[3]);
-            visualisation_rviz.addOneSphere(c, 
+            visualization_rviz.addOneSphere(c, 
                                             sphere_radii, 
                                             i, 
                                             "current_pose_sphere");
@@ -262,54 +270,54 @@ int main(int argc, char** argv){
                  uav_applied_ref[1][i], 
                  uav_applied_ref[2][i]};
             sphere_radii(0) = Ra;
-            visualisation_rviz.changeMarkersColor(color_applied_ref_sphere[0], 
+            visualization_rviz.changeMarkersColor(color_applied_ref_sphere[0], 
                                                   color_applied_ref_sphere[1], 
                                                   color_applied_ref_sphere[2], 
                                                   color_applied_ref_sphere[3]);
-            visualisation_rviz.addOneSphere(c, 
+            visualization_rviz.addOneSphere(c, 
                                             sphere_radii, 
                                             i, 
                                             "applied_ref_sphere");
 
-            visualisation_rviz.changeMarkersColor(color_trajectory[0], 
+            visualization_rviz.changeMarkersColor(color_trajectory[0], 
                                                   color_trajectory[1], 
                                                   color_trajectory[2], 
                                                   color_trajectory[3]);
-            visualisation_rviz.addOneTrajectoryLine(predicted_trajectories,
+            visualization_rviz.addOneTrajectoryLine(predicted_trajectories,
                                                     i,
                                                     number_of_point_traj,
                                                     "trajectory line strip",
-                                                    0.05);
-            visualisation_rviz.addOneTrajectorySpheres(predicted_trajectories,
+                                                    line_width);
+            visualization_rviz.addOneTrajectorySpheres(predicted_trajectories,
                                                     i,
                                                     number_of_point_traj,
                                                     "trajectory sphere list",
-                                                    0.05);
-            visualisation_rviz.addOneTrajectoryArrow(predicted_trajectories,
+                                                    trajectory_sphere_radius);
+            visualization_rviz.addOneTrajectoryArrow(predicted_trajectories,
                                                         i,
                                                         number_of_point_traj,
                                                         "trajectory arrow list",
-                                                        0.075,
-                                                        0.125);
-            visualisation_rviz.changeMarkersColor(color_red_lines[0], 
-                                                  color_red_lines[1], 
-                                                  color_red_lines[2], 
-                                                  color_red_lines[3]);
-            visualisation_rviz.addRedLines(uav_current_poses,
+                                                        trajectory_arrow_shaft_diameter,
+                                                        trajectory_arrow_head_diameter);
+            visualization_rviz.changeMarkersColor(color_line_between_current_positions[0], 
+                                                  color_line_between_current_positions[1], 
+                                                  color_line_between_current_positions[2], 
+                                                  color_line_between_current_positions[3]);
+            visualization_rviz.addCurrentPoseLines(uav_current_poses,
                                            i,
                                            "red lines",
-                                           0.05,
+                                           current_position_line_width,
                                            Ra,
                                            number_of_uav);
-            visualisation_rviz.ShortestDistanceLines(predicted_trajectories,
+            visualization_rviz.ShortestDistanceLines(predicted_trajectories,
                                                      i,
                                                      "shortest_distance_lines",
-                                                     0.05,
+                                                     shortest_ditance_line_width,
                                                      Ra,
                                                      number_of_uav,
                                                      color_shortest_distance_lines,
                                                      color_desired_ref_sphere);
-            visualisation_rviz.changeMarkersColor(UAV_text_label[0], 
+            visualization_rviz.changeMarkersColor(UAV_text_label[0], 
                                                   UAV_text_label[1], 
                                                   UAV_text_label[2], 
                                                   UAV_text_label[3]);
@@ -318,32 +326,32 @@ int main(int argc, char** argv){
                             uav_current_poses[i].position.z + 1.5};
             s_label = diagnostics.active_vehicles[i];
             s_label.replace(0, 3, "goal");
-            visualisation_rviz.addTextLabel(text_position,
+            visualization_rviz.addTextLabel(text_position,
                                             i,
                                             "UAV_text_label",
                                             diagnostics.active_vehicles[i],
-                                            0.5);
+                                            text_label_size);
             text_position = {goal_pose[i].position.x,
                              goal_pose[i].position.y,
                              goal_pose[i].position.z - 1.5};
             s_label = diagnostics.active_vehicles[i];
             s_label.replace(0, 3, "goal");
-            visualisation_rviz.addTextLabel(text_position,
+            visualization_rviz.addTextLabel(text_position,
                                             i,
                                             "frame_text_label",
                                             s_label,
-                                            0.5);
+                                            text_label_size);
             //Strategy 0 part
             if(_DERG_strategy_id_.data == 0){
                 c = {uav_applied_ref[0][i], 
                      uav_applied_ref[1][i], 
                      uav_applied_ref[2][i]};
                 sphere_radii(0) = Sa_.data;
-                visualisation_rviz.changeMarkersColor(color_applied_ref_sphere[0], 
+                visualization_rviz.changeMarkersColor(color_applied_ref_sphere[0], 
                                                     color_applied_ref_sphere[1], 
                                                     color_applied_ref_sphere[2], 
                                                     color_applied_ref_sphere[3]);
-                visualisation_rviz.addOneSphere(c, 
+                visualization_rviz.addOneSphere(c, 
                                                 sphere_radii, 
                                                 i, 
                                                 "error_sphere");
@@ -359,25 +367,25 @@ int main(int argc, char** argv){
                                                                                     uav_applied_ref[2][i]};
                 cylinder_radii(0) = Sa_min_perp.data;
                 if(_DERG_strategy_id_.data == 1){   // Blue tube
-                    visualisation_rviz.changeMarkersColor(color_strategy_1_cylinder_strategy_1[0], 
+                    visualization_rviz.changeMarkersColor(color_strategy_1_cylinder_strategy_1[0], 
                                                         color_strategy_1_cylinder_strategy_1[1], 
                                                         color_strategy_1_cylinder_strategy_1[2], 
                                                         color_strategy_1_cylinder_strategy_1[3]);
                 }
                 else{                               // Transparent tube
-                    visualisation_rviz.changeMarkersColor(color_strategy_2_3_4_cylinder_strategy_1[0], 
+                    visualization_rviz.changeMarkersColor(color_strategy_2_3_4_cylinder_strategy_1[0], 
                                                         color_strategy_2_3_4_cylinder_strategy_1[1], 
                                                         color_strategy_2_3_4_cylinder_strategy_1[2], 
                                                         color_strategy_2_3_4_cylinder_strategy_1[3]);
                 }
-                visualisation_rviz.addOneCylinder(cylinder_startendpoints,
+                visualization_rviz.addOneCylinder(cylinder_startendpoints,
                                                 cylinder_radii,
                                                 i,
                                                 "cylinder_strategy_1");
 
                 // hemisphere 1 at cylinder ends
                 hemisphere_radii(0) = Sa_min_perp.data;
-                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                visualization_rviz.addOneHemisphere(cylinder_startendpoints,
                                                 hemisphere_radii,
                                                 i,
                                                 "hemisphere1_strategy_1");
@@ -391,7 +399,7 @@ int main(int argc, char** argv){
                 
                 // hemisphere 2 at cylinder ends
                 hemisphere_radii(0) = Sa_min_perp.data;
-                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                visualization_rviz.addOneHemisphere(cylinder_startendpoints,
                                                 hemisphere_radii,
                                                 i,
                                                 "hemisphere2_strategy_1");
@@ -410,18 +418,18 @@ int main(int argc, char** argv){
                                                                                     uav_applied_ref[1][i],
                                                                                     uav_applied_ref[2][i]};
                 cylinder_radii(0) = Sa_min_perp.data;
-                visualisation_rviz.changeMarkersColor(color_cylinder_strategy_2[0], 
+                visualization_rviz.changeMarkersColor(color_cylinder_strategy_2[0], 
                                                     color_cylinder_strategy_2[1], 
                                                     color_cylinder_strategy_2[2], 
                                                     color_cylinder_strategy_2[3]);
-                visualisation_rviz.addOneCylinder(cylinder_startendpoints,
+                visualization_rviz.addOneCylinder(cylinder_startendpoints,
                                                 cylinder_radii,
                                                 i,
                                                 "cylinder_strategy_2");
                 
                 // hemisphere 1 at cylinder end
                 hemisphere_radii(0) = Sa_min_perp.data;
-                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                visualization_rviz.addOneHemisphere(cylinder_startendpoints,
                                                 hemisphere_radii,
                                                 i,
                                                 "hemisphere1_strategy_2");
@@ -433,7 +441,7 @@ int main(int argc, char** argv){
                 cylinder_startendpoints.block(3,0,3,1) = Eigen::Matrix<double, 3, 1> {uav_current_poses[i].position.x,
                                                                                     uav_current_poses[i].position.y,
                                                                                     uav_current_poses[i].position.z};
-                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                visualization_rviz.addOneHemisphere(cylinder_startendpoints,
                                                 hemisphere_radii,
                                                 i,
                                                 "hemisphere2_strategy_2");
@@ -452,18 +460,18 @@ int main(int argc, char** argv){
                                                                                     uav_applied_ref[1][i],
                                                                                     uav_applied_ref[2][i]};
                 cylinder_radii(0) = future_tubes[i].min_radius;
-                visualisation_rviz.changeMarkersColor(color_cylinder_strategy_3[0], 
+                visualization_rviz.changeMarkersColor(color_cylinder_strategy_3[0], 
                                                     color_cylinder_strategy_3[1], 
                                                     color_cylinder_strategy_3[2], 
                                                     color_cylinder_strategy_3[3]);
-                visualisation_rviz.addOneCylinder(cylinder_startendpoints,
+                visualization_rviz.addOneCylinder(cylinder_startendpoints,
                                                 cylinder_radii,
                                                 i,
                                                 "cylinder_strategy_3");
                 
                 // hemisphere 1 at cylinder end
                 hemisphere_radii(0) = future_tubes[i].min_radius;
-                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                visualization_rviz.addOneHemisphere(cylinder_startendpoints,
                                                 hemisphere_radii,
                                                 i,
                                                 "hemisphere1_strategy_3");
@@ -476,7 +484,7 @@ int main(int argc, char** argv){
                                                                                     uav_current_poses[i].position.y,
                                                                                     uav_current_poses[i].position.z};
                 hemisphere_radii(0) = future_tubes[i].min_radius;
-                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                visualization_rviz.addOneHemisphere(cylinder_startendpoints,
                                                 hemisphere_radii,
                                                 i,
                                                 "hemisphere2_strategy_3");
@@ -494,28 +502,28 @@ int main(int argc, char** argv){
                                                                                     future_tubes[i].p1.y,
                                                                                     future_tubes[i].p1.z};
                 cylinder_radii(0) = future_tubes[i].min_radius;
-                visualisation_rviz.changeMarkersColor(color_cylinder_strategy_4[0], 
+                visualization_rviz.changeMarkersColor(color_cylinder_strategy_4[0], 
                                                     color_cylinder_strategy_4[1], 
                                                     color_cylinder_strategy_4[2], 
                                                     color_cylinder_strategy_4[3]);
-                visualisation_rviz.addOneCylinder(cylinder_startendpoints,
+                visualization_rviz.addOneCylinder(cylinder_startendpoints,
                                                 cylinder_radii,
                                                 i,
                                                 "cylinder_strategy_4");
 
                 // hemisphere 1 at cylinder end
-                visualisation_rviz.changeMarkersColor(color_hemisphere1_strategy_4[0], 
+                visualization_rviz.changeMarkersColor(color_hemisphere1_strategy_4[0], 
                                                     color_hemisphere1_strategy_4[1], 
                                                     color_hemisphere1_strategy_4[2], 
                                                     color_hemisphere1_strategy_4[3]);
                 hemisphere_radii(0) = future_tubes[i].min_radius;
-                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                visualization_rviz.addOneHemisphere(cylinder_startendpoints,
                                                 hemisphere_radii,
                                                 i,
                                                 "hemisphere1_strategy_4");
 
                 // hemisphere 2 at cylinder end
-                visualisation_rviz.changeMarkersColor(color_hemisphere2_strategy_4[0], 
+                visualization_rviz.changeMarkersColor(color_hemisphere2_strategy_4[0], 
                                                     color_hemisphere2_strategy_4[1], 
                                                     color_hemisphere2_strategy_4[2], 
                                                     color_hemisphere2_strategy_4[3]);
@@ -526,7 +534,7 @@ int main(int argc, char** argv){
                                                                                     future_tubes[i].p0.y,
                                                                                     future_tubes[i].p0.z};
                 hemisphere_radii(0) = future_tubes[i].min_radius;
-                visualisation_rviz.addOneHemisphere(cylinder_startendpoints,
+                visualization_rviz.addOneHemisphere(cylinder_startendpoints,
                                                 hemisphere_radii,
                                                 i,
                                                 "hemisphere2_strategy_4");
@@ -535,7 +543,7 @@ int main(int argc, char** argv){
 
         }
         ros::spinOnce();
-        visualisation_rviz.publishMarkers(marker_array_pub);
+        visualization_rviz.publishMarkers(marker_array_pub);
         r.sleep();
     }
     ros::shutdown();
