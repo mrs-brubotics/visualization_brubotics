@@ -22,13 +22,13 @@
 #include <string>
 #include <iostream>
 
-class ERGVisualization{
+class DERGVisualization{
     private:
         visualization_msgs::MarkerArray marker_array;
         std::string frame_id;
         std_msgs::ColorRGBA color;
     public:
-        ERGVisualization(std::string frame);
+        DERGVisualization(std::string frame);
         void addOneSphere(const Eigen::Matrix<double, 3, 1>& sphere_center,
                           const Eigen::Matrix<double, 1, 1>& sphere_radii, 
                           int id, 
@@ -51,7 +51,7 @@ class ERGVisualization{
                                       int number_of_point,
                                       const std::string& ns,
                                       double traj_sphere_radii);
-        void addRedLines(const std::vector<geometry_msgs::Pose>& current_poses,
+        void addCurrentPoseLines(const std::vector<geometry_msgs::Pose>& current_poses,
                                    const int& id,
                                    const std::string& ns,
                                    const double& width,
@@ -83,6 +83,10 @@ class ERGVisualization{
                                     const std::string& ns,
                                     const std::string& text,
                                     const double& scalez);  
+        void addLine(std::vector<geometry_msgs::Point> v,
+                               const int& id,
+                               const std::string& ns,
+                               const double& width);
         void publishMarkers(ros::Publisher);
 
         void changeMarkersColor(float r, float g, float b, float a);
