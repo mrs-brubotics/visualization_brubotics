@@ -34,23 +34,19 @@ include_directories(
 )
 
 
-
-add_library(visual2
-  src/visual2.cpp
-)
-
-#This will create executables of the nodes
-add_executable(visual src/visual.cpp)
-add_executable(visual_test src/visual_test.cpp)
-
-target_link_libraries(visual_test ${catkin_LIBRARIES} ${Boost_LIBRAIRIES} visual2)
 # ## Declare a C++ library
 # add_library(visualization_brubotics
 #   src/visual.cpp
 # )
+add_library(visual
+  src/visual.cpp
+)
 
-#This will link executables to the appropriate libraries
-target_link_libraries(visual ${catkin_LIBRARIES})
+#This will create executables of the nodes
+add_executable(visual_main src/visual_main.cpp)
+
+target_link_libraries(visual_main ${catkin_LIBRARIES} ${Boost_LIBRAIRIES} visual)
+
 
 ## Tools
 include(${CMAKE_CURRENT_LIST_DIR}/../cmake/ClangTools.cmake OPTIONAL

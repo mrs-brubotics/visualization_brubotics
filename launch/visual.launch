@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <launch>
 
-    <node pkg="visualization_brubotics" type="visual_test" name="visual_test" output="screen"/>
+    <node pkg="visualization_brubotics" type="visual_main" name="visual_main" output="screen"/>
 
     <group ns="visualization_brubotics">
         <rosparam file="$(find visualization_brubotics)/config/visual.yaml" />

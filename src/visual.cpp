@@ -1,302 +1,406 @@
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <mrs_msgs/SpawnerDiagnostics.h>
-#include <mrs_msgs/FutureTrajectory.h>
-#include <mrs_msgs/FuturePoint.h>
-#include <mrs_msgs/Reference.h>
-#include <mrs_msgs/ReferenceStamped.h>
-#include <geometry_msgs/Pose.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/PoseArray.h>
-#include <geometry_msgs/Vector3.h>
-#include <std_msgs/Int32.h>
-#include <std_msgs/Float32.h>
-#include <trackers_brubotics/FutureTrajectoryTube.h> // custom ROS message
-#include <Eigen/Dense>
-#include <mrs_lib/param_loader.h>
+#include <visual.h>
 
+void ERGVisualization::addOneSphere(const Eigen::Matrix<double, 3, 1>& sphere_center,
+                                    const Eigen::Matrix<double, 1, 1>& sphere_radii,
+                                    int id,
+                                    const std::string& ns){
+  
+    visualization_msgs::Marker marker_sphere;
+    marker_sphere.header.frame_id = frame_id;
+    marker_sphere.header.stamp = ros::Time::now();
+    marker_sphere.ns = ns;
+    marker_sphere.id = id;
+    marker_sphere.type = visualization_msgs::Marker::SPHERE; 
+    marker_sphere.action = visualization_msgs::Marker::ADD;
+    marker_sphere.pose.position.x = sphere_center(0,0); 
+    marker_sphere.pose.position.y = sphere_center(1,0); 
+    marker_sphere.pose.position.z = sphere_center(2,0);  
+    marker_sphere.pose.orientation.x = 0.0;
+    marker_sphere.pose.orientation.y = 0.0;
+    marker_sphere.pose.orientation.z = 0.0;
+    marker_sphere.pose.orientation.w = 1.0;
+    marker_sphere.scale.x = 2*sphere_radii[0]; 
+    marker_sphere.scale.y = 2*sphere_radii[0]; 
+    marker_sphere.scale.z = 2*sphere_radii[0]; 
+    marker_sphere.color.r = color.r;
+    marker_sphere.color.g = color.g;
+    marker_sphere.color.b = color.b;
+    marker_sphere.color.a = color.a;
+    marker_sphere.lifetime = ros::Duration();
+    marker_array.markers.push_back(marker_sphere);
 
-#include <ros/ros.h>
-
-#include <iostream>
-#include <string>
-
-#define MAX_UAV_NUMBER 10       // Maximum number of UAVs for the visualization, used to initialized vectors and arrays
-
-
-// | -------------------------------- Parameters -------------------------------- |
-
-const std::string empty = std::string();
-bool test1 = false;
-bool test2 = false;
-int step;           // displayed trajectory points step
-double Ra = 0.35;   // drone's radius
-int number_of_uav;
-std::array<std::array<double, 2>, 3> uav_applied_ref;
-std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories;
-int number_of_point_traj;
-std::string s_label;
-std::vector<float> color_current_pose_sphere(4);
-std::vector<float> color_applied_ref_sphere(4);
-std::vector<float> color_shortest_distance_lines(4);
-std::vector<float> color_trajectory(4);
-std::vector<float> color_red_lines(4);
-std::vector<float> color_desired_ref_sphere(4);
-std::vector<float> color_error_sphere(4);
-std::vector<float> color_strategy_1_cylinder_strategy_1(4);
-std::vector<float> color_strategy_2_3_4_cylinder_strategy_1(4);
-std::vector<float> color_cylinder_strategy_2(4);
-std::vector<float> color_cylinder_strategy_3(4);
-std::vector<float> color_cylinder_strategy_4(4);
-std::vector<float> color_hemisphere1_strategy_4(4);
-std::vector<float> color_hemisphere2_strategy_4(4);
-std::vector<float> UAV_text_label(4);
-
-
-// | ------------------------ Publishers and subscribers ----------------------- |
-
-// Publishers
-ros::Publisher marker_publisher_;
-ros::Publisher frame_publisher_;
-// Subscribers
-ros::Subscriber diagnostics_subscriber_;
-ros::Subscriber DERG_strategy_id_subscriber_;
-ros::Subscriber Sa_subscriber_;             
-ros::Subscriber Sa_perp_subscriber_;
-ros::Subscriber tube_min_radius_subscriber_;
-std::vector<ros::Subscriber> goal_pose_subscribers_(MAX_UAV_NUMBER);
-std::vector<ros::Subscriber> uav_current_pose_subscribers_(MAX_UAV_NUMBER);
-std::vector<ros::Subscriber> uav_applied_ref_subscribers_(MAX_UAV_NUMBER);
-std::vector<ros::Subscriber> point_link_star_subscribers_(MAX_UAV_NUMBER);
-std::vector<ros::Subscriber> future_tube_subscribers_(MAX_UAV_NUMBER);
-std::vector<ros::Subscriber> predicted_trajectory_subscribers_(MAX_UAV_NUMBER);
-
-
-// | -------------------------------- Messages --------------------------------- |
-
-mrs_msgs::SpawnerDiagnostics diagnostics;               // we use the "active_vehicles" member of this message to set the number_of_uav
-mrs_msgs::FutureTrajectory uav_applied_ref_traj;
-mrs_msgs::FutureTrajectory predicted_traj;
-trackers_brubotics::FutureTrajectoryTube future_tube;
-geometry_msgs::PoseArray uav_current_pose;
-geometry_msgs::Pose cylinder_pose;
-geometry_msgs::Pose point_link_star;
-std_msgs::Int32 _DERG_strategy_id_;
-std_msgs::Int32 Sa_;                                    // error sphere radius (strategy 0)
-std_msgs::Int32 Sa_min_perp;
-std_msgs::Float32 tube_min_radius;
-std::vector<geometry_msgs::Pose> uav_current_poses(MAX_UAV_NUMBER);
-std::vector<geometry_msgs::Pose> point_link_stars(MAX_UAV_NUMBER);
-std::vector<trackers_brubotics::FutureTrajectoryTube> future_tubes(MAX_UAV_NUMBER);
-std::vector<geometry_msgs::PoseStamped> frame_pose(MAX_UAV_NUMBER);
-std::vector<mrs_msgs::Reference> goal_pose(MAX_UAV_NUMBER);
-
-// | --------------------------- Function prototypes -------------------------- |
-
-// Callbacks
-void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& diagnostics);
-void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg);
-void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
-void GoalPoseCallback(const mrs_msgs::ReferenceStamped::ConstPtr& msg, int uav_number);
-
-void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number);
-void AppliedRefCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
-void PointLinkStarCallback(const geometry_msgs::Pose::ConstPtr& msg, int uav_number);
-void FutureTubeCallback(const trackers_brubotics::FutureTrajectoryTube::ConstPtr& msg, int uav_number);
-
-void SaCallback(const std_msgs::Int32::ConstPtr& msg);
-void SaPerpCallback(const std_msgs::Int32::ConstPtr& msg);
-void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg);
-
-// Others functions
-double getDistance(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2);
-geometry_msgs::Point getMiddle(const geometry_msgs::Point& pt1, const geometry_msgs::Point& pt2);
-void FrameOrientation(geometry_msgs::Pose& frame, const mrs_msgs::Reference& goal_pose);
-void CylinderOrientation(const geometry_msgs::Point &p1,const geometry_msgs::Point &p2, geometry_msgs::Pose& cylinder_pose, double& cylinder_height);
-void CalculNorm(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, double& norm);
-void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind);
-void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, const double& norm);
-void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const double& radius, const int& number_uav);
-void Trajectory(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type, const float& r, const float& g, const float& b, const float& alpha);
-void RedLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::vector<geometry_msgs::Pose>& obj_pose, const int& number_uav, const double& radius, const float& r, const float& g, const float& b, const float& alpha);
-void InitMarker(visualization_msgs::Marker& marker, const std::string name, const int id, const int type, const float r, const float g, const float b, const float a, const std::string &mesh);
-void PublishFrame(std::vector<geometry_msgs::PoseStamped> frame_pose,const std::vector<mrs_msgs::Reference>& goal_pose, int number_uav);
-void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose, std::array<std::array<double, 2>, 3> ref, 
-                    const std::vector<geometry_msgs::Pose>& pstar, 
-                    const std::vector<trackers_brubotics::FutureTrajectoryTube>& future_tubes, 
-                    std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories, int number_uav);
-
-
-// | -------------------------------- Callbacks ------------------------------- |
-
-
-
-void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& msg){
-    if (test1){
-        return;
-    }
-    diagnostics.active_vehicles = msg -> active_vehicles;
-    //ROS_INFO_STREAM("UAV list: " << diagnostics.active_vehicles[0] << ", " << diagnostics.active_vehicles[1]);
-    test1 = true;
 }
 
-void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg){
-    _DERG_strategy_id_.data = msg -> data;
-    //ROS_INFO_STREAM("DERG_strategy_id = " << _DERG_strategy_id_.data);
-}
-
-void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number){
-    predicted_traj.points = msg -> points;
-    for(int i=0; i<predicted_traj.points.size(); i++){
-        predicted_trajectories[i][0][uav_number-1] = predicted_traj.points[i].x;
-        predicted_trajectories[i][1][uav_number-1] = predicted_traj.points[i].y;
-        predicted_trajectories[i][2][uav_number-1] = predicted_traj.points[i].z;
-        //ROS_INFO_STREAM("x : " << predicted_trajectories[i][0][uav_number-1]);
-    }
-    test2 = true;
-}
-
-void GoalPoseCallback(const mrs_msgs::ReferenceStamped::ConstPtr& msg, int uav_number){
-    frame_pose[uav_number-1].header = msg -> header;
-    goal_pose[uav_number-1] = msg -> reference;
-    // ROS_INFO_STREAM("goal pose : " << goal_pose[uav_number-1]);
-}
-
-void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number){
-    uav_current_pose.poses = msg -> poses;
-    uav_current_poses[uav_number-1] = uav_current_pose.poses[uav_number-1];
-    //ROS_INFO_STREAM("UAV " << uav_number << ": " uav_current_poses[uav_number-1]);
-}
-
-void AppliedRefCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number){
-    uav_applied_ref_traj.points = msg -> points;
-    uav_applied_ref[0][uav_number-1] = uav_applied_ref_traj.points[0].x;
-    uav_applied_ref[1][uav_number-1] = uav_applied_ref_traj.points[0].y;
-    uav_applied_ref[2][uav_number-1] = uav_applied_ref_traj.points[0].z;
-    //ROS_INFO_STREAM("UAV " << uav_number << ": x = " << uav_applied_ref[0][uav_number-1] << ", y = " << uav_applied_ref[1][uav_number-1] << ", z = " << uav_applied_ref[2][uav_number-1]);
-}
-
-void PointLinkStarCallback(const geometry_msgs::Pose::ConstPtr& msg, int uav_number){
-    point_link_star.position = msg -> position;
-    point_link_stars[uav_number-1].position = point_link_star.position;
-    //ROS_INFO_STREAM("UAV" << uav_number << ": " << point_link_stars[uav_number-1].position);
-}
-
-void FutureTubeCallback(const trackers_brubotics::FutureTrajectoryTube::ConstPtr& msg, int uav_number){
-    future_tube.min_radius = msg -> min_radius;
-    future_tube.p0 = msg -> p0;
-    future_tube.p1 = msg -> p1;
-    future_tubes[uav_number-1].min_radius = future_tube.min_radius;
-    future_tubes[uav_number-1].p0 = future_tube.p0;
-    future_tubes[uav_number-1].p1 = future_tube.p1;
-    //ROS_INFO_STREAM("UAV" << uav_number << ": " << future_tubes[uav_number-1]);
-}
-
-void SaCallback(const std_msgs::Int32::ConstPtr& msg){
-    Sa_.data = msg -> data;
-    //ROS_INFO_STREAM("Sa_ = " << Sa_.data);
-}
-
-void SaPerpCallback(const std_msgs::Int32::ConstPtr& msg){
-    Sa_min_perp.data = msg -> data;
-    //ROS_INFO_STREAM("Sa_min_perp = " << Sa_min_perp.data);
-}
-
-void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg){
-    tube_min_radius.data = msg -> data;
-    //ROS_INFO_STREAM("tube_min_radius = " << tube_min_radius.data);
-}
+void ERGVisualization::addOneCylinder(const Eigen::Matrix<double, 6, 1>& cylinder_startendpoint,
+                                      const Eigen::Matrix<double, 1, 1>& cylinder_radii,
+                                      int id,
+                                      const std::string& ns){
+    visualization_msgs::Marker marker_cylinder;
+    Eigen::Matrix<double, 3, 1> cylinder_startpoint = cylinder_startendpoint.block(0,0,3,1);
+    Eigen::Matrix<double, 3, 1> cylinder_endpoint = cylinder_startendpoint.block(3,0,3,1);
+    Eigen::Matrix<double, 3, 1> cylinder_center = (cylinder_startpoint + cylinder_endpoint)*0.5;
 
 
-// | -------------------------- Function definitions -------------------------- |
+    marker_cylinder.header.frame_id = frame_id;
+    marker_cylinder.header.stamp = ros::Time::now();
+    marker_cylinder.ns = ns;
+    marker_cylinder.id = id;
+    marker_cylinder.type = visualization_msgs::Marker::MESH_RESOURCE; 
+    marker_cylinder.mesh_resource = "package://visualization_brubotics/meshes/CylinderShell_10mm.stl";
+    marker_cylinder.action = visualization_msgs::Marker::ADD;
+    marker_cylinder.pose.position.x = cylinder_center[0]; 
+    marker_cylinder.pose.position.y = cylinder_center[1];
+    marker_cylinder.pose.position.z = cylinder_center[2];
 
-// Return the distance between two points
-double getDistance(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2){
-    double res;
-    res = sqrt((p1.x-p2.x)*(p1.x-p2.x)+(p1.y-p2.y)*(p1.y-p2.y)+(p1.z-p2.z)*(p1.z-p2.z));
-    return res;
-}
 
-// Return the middle point of two points
-geometry_msgs::Point getMiddle(const geometry_msgs::Point& pt1, const geometry_msgs::Point& pt2){
-    geometry_msgs::Point res;
-    res.x = (pt1.x + pt2.x)*0.5;
-    res.y = (pt1.y + pt2.y)*0.5;
-    res.z = (pt1.z + pt2.z)*0.5;
-    return res;
-}
-
-void FrameOrientation(geometry_msgs::Pose& frame, const mrs_msgs::Reference& goal_pose){
-
-    Eigen::Vector3d frame_z_direction(0., 0., goal_pose.heading);
-    Eigen::Vector3d origin_z_direction(0., 0., 1.);
-    frame_z_direction.normalize();
-    Eigen::Vector3d axis;
-    axis = origin_z_direction.cross(frame_z_direction);
-    axis.normalize();
-    double angle = acos(frame_z_direction.dot(origin_z_direction));
-    frame.orientation.x = axis.x() * sin(angle/2);
-    frame.orientation.y = axis.y() * sin(angle/2);
-    frame.orientation.z = axis.z() * sin(angle/2);
-    frame.orientation.w = cos(angle/2);
-}
-
-// Calculate the pose and the height of a cylinder formed from two points
-void CylinderOrientation(const geometry_msgs::Point &p1,const geometry_msgs::Point &p2, geometry_msgs::Pose& cylinder_pose, double& cylinder_height){
-
-    geometry_msgs::Point middle = getMiddle(p1, p2);
-    cylinder_height = getDistance(p1, p2);
-
-    cylinder_pose.position.x = middle.x; 
-    cylinder_pose.position.y = middle.y; 
-    cylinder_pose.position.z = middle.z;
-
-    Eigen::Vector3d cylinder_z_direction(p2.x-p1.x, p2.y-p1.y, p2.z-p1.z);
+    Eigen::Vector3d cylinder_z_direction(cylinder_startpoint-cylinder_endpoint);
     Eigen::Vector3d origin_z_direction(0., 0., 1.);
     cylinder_z_direction.normalize();
     Eigen::Vector3d axis;
     axis = origin_z_direction.cross(cylinder_z_direction);
     axis.normalize();
     double angle = acos(cylinder_z_direction.dot(origin_z_direction));
-    cylinder_pose.orientation.x = axis.x() * sin(angle/2);
-    cylinder_pose.orientation.y = axis.y() * sin(angle/2);
-    cylinder_pose.orientation.z = axis.z() * sin(angle/2);
-    cylinder_pose.orientation.w = cos(angle/2);
+    double qx = axis.x() * sin(angle/2);
+    double qy = axis.y() * sin(angle/2);
+    double qz = axis.z() * sin(angle/2);
+    double qw = cos(angle/2);
+    double qnorm = sqrt(qx*qx + qy*qy + qz*qz + qw *qw);
+    marker_cylinder.pose.orientation.x = qx/qnorm;
+    marker_cylinder.pose.orientation.y = qy/qnorm;
+    marker_cylinder.pose.orientation.z = qz/qnorm;
+    marker_cylinder.pose.orientation.w = qw/qnorm;
+    
+    marker_cylinder.scale.x = 0.001*2.0*cylinder_radii[0];
+    marker_cylinder.scale.y = 0.001*2.0*cylinder_radii[0];
+    marker_cylinder.scale.z = 0.001*(cylinder_startpoint - cylinder_endpoint).norm();
+    marker_cylinder.color.r = color.r;
+    marker_cylinder.color.g = color.g;
+    marker_cylinder.color.b = color.b;
+    marker_cylinder.color.a = color.a;
+    marker_cylinder.lifetime = ros::Duration();
+    marker_array.markers.push_back(marker_cylinder);
+
 }
 
-// From point p1, calculate the new point new_p transposed by distance in the direction formed by the director vector (p2, p1)
-void GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, double& norm){
+void ERGVisualization::addOneHemisphere(const Eigen::Matrix<double, 6, 1>& cylinder_startendpoint,
+                                      const Eigen::Matrix<double, 1, 1>& hemisphere_radii,
+                                      int id,
+                                      const std::string& ns){
+    visualization_msgs::Marker markher_hemisphere;
+    Eigen::Matrix<double, 3, 1> cylinder_startpoint = cylinder_startendpoint.block(0,0,3,1);
+    Eigen::Matrix<double, 3, 1> cylinder_endpoint = cylinder_startendpoint.block(3,0,3,1);
+
+    markher_hemisphere.header.frame_id = frame_id;
+    markher_hemisphere.header.stamp = ros::Time::now();
+    markher_hemisphere.ns = ns;
+    markher_hemisphere.id = id;
+    markher_hemisphere.type = visualization_msgs::Marker::MESH_RESOURCE; 
+    markher_hemisphere.mesh_resource = "package://visualization_brubotics/meshes/HemisphereShell_10mm.stl";
+    markher_hemisphere.action = visualization_msgs::Marker::ADD;
+    markher_hemisphere.pose.position.x = cylinder_startpoint[0]; 
+    markher_hemisphere.pose.position.y = cylinder_startpoint[1];
+    markher_hemisphere.pose.position.z = cylinder_startpoint[2];
+
+    Eigen::Vector3d cylinder_z_direction(cylinder_startpoint-cylinder_endpoint);
+    Eigen::Vector3d origin_z_direction(0., 0., 1.);
+    cylinder_z_direction.normalize();
+    Eigen::Vector3d axis;
+    axis = origin_z_direction.cross(cylinder_z_direction);
+    axis.normalize();
+    double angle = acos(cylinder_z_direction.dot(origin_z_direction));
+    double qx = axis.x() * sin(angle/2);
+    double qy = axis.y() * sin(angle/2);
+    double qz = axis.z() * sin(angle/2);
+    double qw = cos(angle/2);
+    double qnorm = sqrt(qx*qx + qy*qy + qz*qz + qw *qw);
+    markher_hemisphere.pose.orientation.x = qx/qnorm;
+    markher_hemisphere.pose.orientation.y = qy/qnorm;
+    markher_hemisphere.pose.orientation.z = qz/qnorm;
+    markher_hemisphere.pose.orientation.w = qw/qnorm;
+    
+    markher_hemisphere.scale.x = 0.001*hemisphere_radii[0];
+    markher_hemisphere.scale.y = 0.001*hemisphere_radii[0];
+    markher_hemisphere.scale.z = 0.001*hemisphere_radii[0];
+    markher_hemisphere.color.r = color.r;
+    markher_hemisphere.color.g = color.g;
+    markher_hemisphere.color.b = color.b;
+    markher_hemisphere.color.a = color.a;
+    markher_hemisphere.lifetime = ros::Duration();
+    marker_array.markers.push_back(markher_hemisphere);
+
+}
+void ERGVisualization::addOneTrajectoryLine(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+                                            int id,
+                                            int number_of_point,
+                                            const std::string& ns,
+                                            double width){
+    visualization_msgs::Marker marker_trajectory_l;
+    geometry_msgs::Point p_traj_l;
+    int step;
+
+    marker_trajectory_l.header.frame_id = frame_id;
+    marker_trajectory_l.header.stamp = ros::Time::now();
+    marker_trajectory_l.ns = ns;
+    marker_trajectory_l.id = id;
+    marker_trajectory_l.type = visualization_msgs::Marker::LINE_STRIP; 
+    marker_trajectory_l.action = visualization_msgs::Marker::ADD;
+    step = predicted_traj[id].points.size() / number_of_point;
+    
+    for(int j=0; j<(predicted_traj[id].points.size() - step); j+=step){
+        p_traj_l.x = (double) predicted_traj[id].points[j].x;
+        p_traj_l.y = (double) predicted_traj[id].points[j].y;
+        p_traj_l.z = (double) predicted_traj[id].points[j].z;
+        marker_trajectory_l.points.push_back(p_traj_l);
+    }
+
+    p_traj_l.x = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].x;
+    p_traj_l.y = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].y;
+    p_traj_l.z = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].z;
+    marker_trajectory_l.points.push_back(p_traj_l);
+
+    marker_trajectory_l.scale.x = width; // width of the line strip
+    marker_trajectory_l.color.r = color.r;
+    marker_trajectory_l.color.g = color.g;
+    marker_trajectory_l.color.b = color.b;
+    marker_trajectory_l.color.a = color.a;
+    marker_trajectory_l.lifetime = ros::Duration();
+    marker_array.markers.push_back(marker_trajectory_l);
+
+}
+void ERGVisualization::addOneTrajectorySpheres(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+                                            int id,
+                                            int number_of_point,
+                                            const std::string& ns,
+                                            double traj_sphere_radii){
+    visualization_msgs::Marker marker_trajectory_s;
+    geometry_msgs::Point p_traj_s;
+    int step;
+    marker_trajectory_s.header.frame_id = frame_id;
+    marker_trajectory_s.header.stamp = ros::Time::now();
+    marker_trajectory_s.ns = ns;
+    marker_trajectory_s.id = id;
+    marker_trajectory_s.type = visualization_msgs::Marker::SPHERE_LIST; 
+    marker_trajectory_s.action = visualization_msgs::Marker::ADD;
+    step = predicted_traj[id].points.size() / number_of_point;
+    marker_trajectory_s.pose.position.x = 0;
+    marker_trajectory_s.pose.position.y = 0;
+    marker_trajectory_s.pose.position.z = 0;
+    for(int j=0; j<(predicted_traj[id].points.size() - step); j+=step){
+        p_traj_s.x = (double) predicted_traj[id].points[j].x;
+        p_traj_s.y = (double) predicted_traj[id].points[j].y;
+        p_traj_s.z = (double) predicted_traj[id].points[j].z;
+        marker_trajectory_s.points.push_back(p_traj_s);
+    }
+    p_traj_s.x = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].x;
+    p_traj_s.y = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].y;
+    p_traj_s.z = (double) predicted_traj[id].points[predicted_traj[id].points.size()-1].z;
+    marker_trajectory_s.points.push_back(p_traj_s);
+    marker_trajectory_s.scale.x = 2*traj_sphere_radii;    // radius of the spheres
+    marker_trajectory_s.scale.y = 2*traj_sphere_radii;    // radius
+    marker_trajectory_s.scale.z = 2*traj_sphere_radii;    // radius
+    marker_trajectory_s.color.r = color.r;
+    marker_trajectory_s.color.g = color.g;
+    marker_trajectory_s.color.b = color.b;
+    marker_trajectory_s.color.a = color.a;
+    marker_trajectory_s.lifetime = ros::Duration();
+    marker_array.markers.push_back(marker_trajectory_s);
+
+}
+
+void ERGVisualization::addOneTrajectoryArrow(const std::vector<mrs_msgs::FutureTrajectory>& predicted_traj,
+                                            const int& id,
+                                            const int& number_of_point,
+                                            const std::string& ns,
+                                            const double& shaft,
+                                            const double& head){
+    visualization_msgs::Marker marker_trajectory_a;
+    geometry_msgs::Point p_traj_a;
+    int step;
+    int arrow_index=0;
+    
+    marker_trajectory_a.header.frame_id = frame_id;
+    marker_trajectory_a.header.stamp = ros::Time::now();
+    marker_trajectory_a.ns = ns;
+    marker_trajectory_a.pose.position.x = 0.;
+    marker_trajectory_a.pose.position.y = 0.;
+    marker_trajectory_a.pose.position.z = 0.;
+    marker_trajectory_a.pose.orientation.x = 0.;
+    marker_trajectory_a.pose.orientation.y = 0.;
+    marker_trajectory_a.pose.orientation.z = 0.;
+    marker_trajectory_a.pose.orientation.w = 1.0;
+
+    marker_trajectory_a.color.r = color.r;
+    marker_trajectory_a.color.g = color.g;
+    marker_trajectory_a.color.b = color.b;
+    marker_trajectory_a.color.a = color.a;
+    marker_trajectory_a.lifetime = ros::Duration();
+    marker_trajectory_a.scale.x = shaft;    // shaft diameter
+    marker_trajectory_a.scale.y = head;    // head diameter
+            // head length (=0 is default length of an Rviz arrow)
+
+    step = predicted_traj[id].points.size() / number_of_point;
+    
+    for(int j=0; j<(predicted_traj[id].points.size() - step); j+=2*step){
+        marker_trajectory_a.points.clear();
+        marker_trajectory_a.id = arrow_index+1000*id;
+        arrow_index += 1;
+        for(int i=0; i<2; i++){
+            p_traj_a.x = predicted_traj[id].points[j+i*step].x;
+            p_traj_a.y = predicted_traj[id].points[j+i*step].y;
+            p_traj_a.z = predicted_traj[id].points[j+i*step].z;
+            marker_trajectory_a.points.push_back(p_traj_a);
+        }
+        marker_array.markers.push_back(marker_trajectory_a);
+    }
+}
+
+void ERGVisualization::addRedLines(const std::vector<geometry_msgs::Pose>& current_poses,
+                                   const int& id,
+                                   const std::string& ns,
+                                   const double& width,
+                                   const double& radius,
+                                   const int& number_uav){
+    visualization_msgs::Marker marker_redlines;
+    geometry_msgs::Point p1, p2, p_new;
+    double norm;
+    for(int i=0; i<(number_uav-1); i++){
+        
+        for(int j=i+1; j<number_uav; j++){    
+            marker_redlines.header.frame_id = frame_id;
+            marker_redlines.header.stamp = ros::Time::now();
+            marker_redlines.ns = ns;
+            marker_redlines.id = i*100+j;
+            marker_redlines.type = visualization_msgs::Marker::LINE_STRIP; 
+            marker_redlines.action = visualization_msgs::Marker::ADD;
+            marker_redlines.scale.x = width; // width
+            marker_redlines.color.r = color.r;
+            marker_redlines.color.g = color.g;
+            marker_redlines.color.b = color.b;
+            marker_redlines.color.a = color.a;
+
+            p1.x = current_poses[i].position.x;
+            p1.y = current_poses[i].position.y;
+            p1.z = current_poses[i].position.z;
+
+            p2.x = current_poses[j].position.x;
+            p2.y = current_poses[j].position.y;
+            p2.z = current_poses[j].position.z;
+
+            CalculNorm(p1, p2, norm);
+
+            GiveTranslatedPoint(p1,p2,p_new,radius,norm);
+            marker_redlines.points.push_back(p_new);
+
+            GiveTranslatedPoint(p2,p1,p_new,radius,norm);
+            marker_redlines.points.push_back(p_new);
+
+            marker_array.markers.push_back(marker_redlines);
+            marker_redlines.points.clear();
+        }
+    }
+}
+
+void ERGVisualization::CalculNorm(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, double& norm){
+    norm = sqrt(  (p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y) + (p1.z - p2.z)*(p1.z - p2.z) );
+}
+
+void ERGVisualization::GiveTranslatedPoint(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, geometry_msgs::Point& new_p, const double& distance, double& norm){
     new_p.x = p1.x + distance * (p2.x-p1.x)/norm;
     new_p.y = p1.y + distance * (p2.y-p1.y)/norm;
     new_p.z = p1.z + distance * (p2.z-p1.z)/norm;
 }
 
-// Calculate the norm vector of two UAVs trajectories
-void CalculNorm(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, double& norm){
-    norm = sqrt(  (p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y) + (p1.z - p2.z)*(p1.z - p2.z) );
+void ERGVisualization::ShortestDistanceLines(const std::vector<mrs_msgs::FutureTrajectory>& point,
+                                             const int& id,
+                                             const std::string& ns,
+                                             const double& width,
+                                             const double& radius,
+                                             const int& number_uav,
+                                             const std::vector<float> color_shortest_distance_lines,
+                                             const std::vector<float> color_desired_ref_sphere){
+    visualization_msgs::Marker marker_shortestlines;
+    double norm_min;
+    int ind=0;
+    Eigen::Matrix<double, 3, 1> c;
+    Eigen::Matrix<double, 1, 1> sphere_radii;
+    geometry_msgs::Point p1, p2, p_new1, p_new2;
+    
+    for(int i=0; i<(number_uav-1); i++){
+
+        for(int j=i+1; j<number_uav; j++){
+            // calculate the minimal norm and return index
+            CalculNormMin(point,i,j,norm_min,ind);
+            p1.x = point[i].points[ind].x;
+            p1.y = point[i].points[ind].y;
+            p1.z = point[i].points[ind].z;
+                
+            p2.x = point[j].points[ind].x;
+            p2.y = point[j].points[ind].y;
+            p2.z = point[j].points[ind].z;
+            
+            marker_shortestlines.header.frame_id = frame_id;
+            marker_shortestlines.header.stamp = ros::Time::now();
+            marker_shortestlines.ns = ns;
+            marker_shortestlines.id = i*100+j;
+            marker_shortestlines.type = visualization_msgs::Marker::LINE_STRIP; 
+            marker_shortestlines.action = visualization_msgs::Marker::ADD;
+            marker_shortestlines.scale.x = width; // width
+            changeMarkersColor(color_shortest_distance_lines[0], color_shortest_distance_lines[1], color_shortest_distance_lines[2], color_shortest_distance_lines[3]);
+            marker_shortestlines.color.r = color.r;
+            marker_shortestlines.color.g = color.g;
+            marker_shortestlines.color.b = color.b;
+            marker_shortestlines.color.a = color.a;
+            // calculate the coordinates of the desired ref position translated by radius Ra
+            GiveTranslatedPoint(p1,p2,p_new1,radius,norm_min);
+            GiveTranslatedPoint(p2,p1,p_new2,radius,norm_min);
+
+            marker_shortestlines.points.push_back(p_new1);
+            marker_shortestlines.points.push_back(p_new2);
+
+            marker_array.markers.push_back(marker_shortestlines);
+
+            // spheres at desired reference pose
+            c = {p1.x,p1.y,p1.z};
+            sphere_radii(0) = radius;
+            changeMarkersColor(color_desired_ref_sphere[0], color_desired_ref_sphere[1], color_desired_ref_sphere[2], color_desired_ref_sphere[3]);
+            addOneSphere(c,
+                         sphere_radii,
+                         i*100+j,
+                         "desired_ref_sphere");
+            
+            c = {p2.x,p2.y,p2.z};
+            addOneSphere(c,
+                         sphere_radii,
+                         i*100+j+100000,
+                         "desired_ref_sphere");
+        }
+    }
 }
 
-// Calculate the minimal norm of two UAVs trajectories
-void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const int& uav1, const int& uav2, double& norm_min, int& ind){
+void ERGVisualization::CalculNormMin(const std::vector<mrs_msgs::FutureTrajectory>& point,
+                                     const int& uav1, 
+                                     const int& uav2, 
+                                     double& norm_min, 
+                                     int& ind){
     double norm;
     geometry_msgs::Point ptest1, ptest2;
-    ptest1.x = point[0][0][uav1];
-    ptest1.y = point[0][1][uav1];
-    ptest1.z = point[0][2][uav1];
+    ptest1.x = point[uav1].points[0].x;
+    ptest1.y = point[uav1].points[0].y;
+    ptest1.z = point[uav1].points[0].z;
                 
-    ptest2.x = point[0][0][uav2];
-    ptest2.y = point[0][1][uav2];
-    ptest2.z = point[0][2][uav2];
+    ptest2.x = point[uav2].points[0].x;
+    ptest2.y = point[uav2].points[0].y;
+    ptest2.z = point[uav2].points[0].z;
     CalculNorm(ptest1, ptest2, norm_min);
-    for(int j=1; j<predicted_traj.points.size(); j++){
+    for(int j=1; j<point[uav1].points.size(); j++){
             
-            ptest1.x = point[j][0][uav1];
-            ptest1.y = point[j][1][uav1];
-            ptest1.z = point[j][2][uav1];
+            ptest1.x = point[uav1].points[j].x;
+            ptest1.y = point[uav1].points[j].y;
+            ptest1.z = point[uav1].points[j].z;
                 
-            ptest2.x = point[j][0][uav2];
-            ptest2.y = point[j][1][uav2];
-            ptest2.z = point[j][2][uav2];
+            ptest2.x = point[uav2].points[j].x;
+            ptest2.y = point[uav2].points[j].y;
+            ptest2.z = point[uav2].points[j].z;
             //ROS_INFO_STREAM("p1 : " << ptest1 << " p2 : " << ptest2);
             CalculNorm(ptest1, ptest2, norm);
 
@@ -307,632 +411,52 @@ void CalculNormMin(const std::array<std::array<std::array<double, 2>, 3>, 1000> 
         }
 }
 
-// Initialize marker with namespace, id, type, color (and mesh)
-void InitMarker(visualization_msgs::Marker& marker, const std::string name, const int id, const int type, const float r, const float g, const float b, const float a, const std::string &mesh = empty){
-    //Clear marker pose
-    marker.pose.position.x = 0;
-    marker.pose.position.y = 0;
-    marker.pose.position.z = 0;
-    marker.pose.orientation.x = 0;
-    marker.pose.orientation.y = 0;
-    marker.pose.orientation.z = 0;
-    marker.pose.orientation.w = 0;
-
-    marker.header.frame_id = "/common_origin";
-    marker.header.stamp = ros::Time::now();
-    marker.ns = name;
-    marker.id = id;
-    marker.type = type; 
-    if(type==10){
-        marker.mesh_resource = "package://visualization_brubotics/meshes/" + mesh + ".stl";
-    }
-    marker.action = visualization_msgs::Marker::ADD;
-    marker.color.r = r;
-    marker.color.g = g;
-    marker.color.b = b;
-    marker.color.a = a;
-    marker.lifetime = ros::Duration();
+void ERGVisualization::addTextLabel(const Eigen::Matrix<double, 3, 1>& text_position,
+                                    const int& id,
+                                    const std::string& ns,
+                                    const std::string& text,
+                                    const double& scalez){
+    visualization_msgs::Marker marker_text;
+    marker_text.header.frame_id = frame_id;
+    marker_text.header.stamp = ros::Time::now();
+    marker_text.ns = ns;
+    marker_text.id = id;
+    marker_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING; 
+    marker_text.action = visualization_msgs::Marker::ADD;
+    marker_text.text = text;
+    marker_text.pose.position.x = text_position(0,0); 
+    marker_text.pose.position.y = text_position(1,0); 
+    marker_text.pose.position.z = text_position(2,0);
+    marker_text.scale.z = scalez;
+    marker_text.color.r = color.r;
+    marker_text.color.g = color.g;
+    marker_text.color.b = color.b;
+    marker_text.color.a = color.a;
+    marker_text.lifetime = ros::Duration();
+    marker_array.markers.push_back(marker_text); 
+    
 }
 
-// Compute the line showing the shortest distance between UAV trajectories
-void ShortestDistanceLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::array<std::array<std::array<double, 2>, 3>, 1000> point, const double& radius, const int& number_uav){
-    // line for minimal distance
-    double norm_min;
-    int ind;
-    geometry_msgs::Point p1, p2, p_new1, p_new2;
-
-    for(int i=0; i<(number_uav-1); i++){
-
-        for(int j=i+1; j<number_uav; j++){
-
-            // calculate the minimal norm and return index
-            CalculNormMin(point,i,j,norm_min,ind);
-            p1.x = point[ind][0][i];
-            p1.y = point[ind][1][i];
-            p1.z = point[ind][2][i];
-                
-            p2.x = point[ind][0][j];
-            p2.y = point[ind][1][j];
-            p2.z = point[ind][2][j];
-            
-            InitMarker(marker, "minimal_distance", i*100+j, 4, color_shortest_distance_lines[0], color_shortest_distance_lines[1], color_shortest_distance_lines[2], color_shortest_distance_lines[3]);
-            // calculate the coordinates of the desired ref position translated by radius Ra
-            GiveTranslatedPoint(p1,p2,p_new1,radius,norm_min);
-            GiveTranslatedPoint(p2,p1,p_new2,radius,norm_min);
-
-            marker.points.push_back(p_new1);
-            marker.points.push_back(p_new2);
-
-            marker.scale.x = 0.05; // width 
-
-            markers.markers.push_back(marker);
-
-            // spheres at desired reference pose
-            InitMarker(marker, "desired_ref_sphere", i*100+j, 2, color_desired_ref_sphere[0], color_desired_ref_sphere[1], color_desired_ref_sphere[2], color_desired_ref_sphere[3]);
-            marker.scale.x = 2*Ra; 
-            marker.scale.y = 2*Ra; 
-            marker.scale.z = 2*Ra; 
-            marker.pose.position = p1;
-            markers.markers.push_back(marker);
-
-            marker.id = i*100+j+100000;
-            marker.pose.position = p2;
-            markers.markers.push_back(marker);
-        }
-    } 
+void ERGVisualization::changeMarkersColor(float r, float g, float b, float a){
+    color.r = r;
+    color.g = g;
+    color.b = b;
+    color.a = a;
 }
 
-// Compute the trajectory with a sphere list, a line strip and arrows
-void Trajectory(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, int ind_uav, const std::array<std::array<std::array<double, 2>, 3>, 1000>& predicted_trajectories, const int& type, const float& r, const float& g, const float& b, const float& alpha){
-    
-    geometry_msgs::Point p_traj;
-    int arrow_index=0;
-    if(type==4){
-        InitMarker(marker,"trajectory line strip", ind_uav,type, r, g, b, alpha);
-        marker.scale.x = 0.05;    // width of the line strip
-    }
-    if(type==7){
-        InitMarker(marker,"trajectory sphere list", ind_uav,type, r, g, b, alpha);
-        marker.scale.x = 0.1;    // radius of the spheres
-        marker.scale.y = 0.1;    // radius
-        marker.scale.z = 0.1;    // radius
-    }
-    
-    step = predicted_traj.points.size() / number_of_point_traj;
-
-    if(type==0){
-        for(int j=0; j<(predicted_traj.points.size() - step); j+=2*step){
-            marker.points.clear();
-            InitMarker(marker,"trajectory arrow list", arrow_index+1000*ind_uav, type, r, g, b, alpha);
-            arrow_index += 1;
-            marker.scale.x = 0.075;    // shaft diameter
-            marker.scale.y = 0.125;    // head diameter
-                // head length (=0 is default length of an Rviz arrow)
-            for(int i=0; i<2; i++){
-                p_traj.x = predicted_trajectories[j+i*step][0][ind_uav];
-                p_traj.y = predicted_trajectories[j+i*step][1][ind_uav];
-                p_traj.z = predicted_trajectories[j+i*step][2][ind_uav];
-                marker.points.push_back(p_traj);
-            }
-            markers.markers.push_back(marker);
-        }
-    }
-    
-    for(int j=0; j<(predicted_traj.points.size() - step); j+=step){
-        p_traj.x = predicted_trajectories[j][0][ind_uav];
-        p_traj.y = predicted_trajectories[j][1][ind_uav];
-        p_traj.z = predicted_trajectories[j][2][ind_uav];
-        marker.points.push_back(p_traj);
-    }
-
-    p_traj.x = predicted_trajectories[predicted_traj.points.size()-1][0][ind_uav];
-    p_traj.y = predicted_trajectories[predicted_traj.points.size()-1][1][ind_uav];
-    p_traj.z = predicted_trajectories[predicted_traj.points.size()-1][2][ind_uav];
-    marker.points.push_back(p_traj);
-
-    //ROS_INFO_STREAM("number of points: " << marker.points.size() << ", step: " << step << ", size: " << predicted_traj.points.size());
+void ERGVisualization::publishMarkers(ros::Publisher publisher){
+    publisher.publish(marker_array);
+    deleteAllMarkers();
 }
 
-// Compute the line between UAV current poses
-void RedLines(visualization_msgs::MarkerArray& markers, visualization_msgs::Marker& marker, const std::vector<geometry_msgs::Pose>& obj_pose, const int& number_uav, const double& radius, const float& r, const float& g, const float& b, const float& alpha){
-    geometry_msgs::Point p1, p2, p_new;
-    double norm;
-    for(int i=0; i<(number_uav-1); i++){
-        
-        for(int j=i+1; j<number_uav; j++){
-            InitMarker(marker,"red_line",i*100+j,4,r, g, b, alpha);    
-            marker.scale.x = 0.05; // width
-
-            p1.x = obj_pose[i].position.x;
-            p1.y = obj_pose[i].position.y;
-            p1.z = obj_pose[i].position.z;
-
-            
-            p2.x = obj_pose[j].position.x;
-            p2.y = obj_pose[j].position.y;
-            p2.z = obj_pose[j].position.z;
-
-            CalculNorm(p1, p2, norm);
-
-            GiveTranslatedPoint(p1,p2,p_new,radius,norm);
-            marker.points.push_back(p_new);
-
-            GiveTranslatedPoint(p2,p1,p_new,radius,norm);
-            marker.points.push_back(p_new);
-
-            markers.markers.push_back(marker);
-            marker.points.clear();
-        }
-    }
+ERGVisualization::ERGVisualization(std::string frame){
+    color.r = 1;
+    color.g = 0;
+    color.b = 0;
+    color.a = 0.8;
+    frame_id = frame;
 }
 
-// Publish all the markers
-void PublishMarkers(const std::vector<geometry_msgs::Pose>& obj_pose,
-                    std::array<std::array<double, 2>, 3> ref, const std::vector<geometry_msgs::Pose>& pstar,
-                    const std::vector<trackers_brubotics::FutureTrajectoryTube>& future_tubes,
-                    std::array<std::array<std::array<double, 2>, 3>, 1000> predicted_trajectories, int number_uav){
-    
-    visualization_msgs::Marker marker;
-    visualization_msgs::MarkerArray all_markers;
-    double cylinder_height;
-    geometry_msgs::Point p11, p12;
-    geometry_msgs::Point p21, p22;
-    geometry_msgs::Point p31, p32;
-    geometry_msgs::Point p41, p42;
-    
-
-    // loop for each drone
-    for(int i=0; i<number_uav; i++){
-
-        // small sphere at current pose
-        InitMarker(marker,"current_pose_sphere", i, 2, color_current_pose_sphere[0], color_current_pose_sphere[1], color_current_pose_sphere[2], color_current_pose_sphere[3]);
-        marker.pose = obj_pose[i];
-        marker.scale.x = 2*Ra;     // radius
-        marker.scale.y = 2*Ra;     // radius
-        marker.scale.z = 2*Ra;     // radius
-        all_markers.markers.push_back(marker);
-
-        // small sphere at applied ref pose      
-        InitMarker(marker, "applied_ref_sphere", i, 2, color_applied_ref_sphere[0], color_applied_ref_sphere[1], color_applied_ref_sphere[2], color_applied_ref_sphere[3]);
-        marker.pose.position.x = ref[0][i];
-        marker.pose.position.y = ref[1][i];
-        marker.pose.position.z = ref[2][i];
-        marker.scale.x = 2*Ra;      // radius
-        marker.scale.y = 2*Ra;      // radius
-        marker.scale.z = 2*Ra;      // radius
-        all_markers.markers.push_back(marker);
-
-        // UAV label at current pose and at goal pose
-        InitMarker(marker,"UAV_text_label", i, 9, UAV_text_label[0], UAV_text_label[1], UAV_text_label[2], UAV_text_label[3]);
-        marker.pose.position = obj_pose[i].position;
-        marker.pose.position.z = obj_pose[i].position.z + 1.5;
-        marker.scale.z = 0.5;     //  height of an uppercase "A"
-        marker.text = diagnostics.active_vehicles[i];
-        all_markers.markers.push_back(marker);
-
-        InitMarker(marker,"frame_text_label", i, 9, UAV_text_label[0], UAV_text_label[1], UAV_text_label[2], UAV_text_label[3]);
-        marker.pose.position = goal_pose[i].position;
-        marker.pose.position.z = goal_pose[i].position.z + 0.75;
-        if(marker.pose.position.y <= 0){
-            marker.pose.position.y = goal_pose[i].position.y - 1;
-        }
-        else{
-            marker.pose.position.y = goal_pose[i].position.y + 1;
-        }
-        s_label = diagnostics.active_vehicles[i];
-        s_label.replace(0, 3, "goal");
-        marker.scale.z = 0.5;     //  height of an uppercase "A"
-        marker.text = s_label;
-        all_markers.markers.push_back(marker);
-
-        // Predicted trajectory sphere list
-        Trajectory(all_markers, marker, i, predicted_trajectories, 7, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
-        all_markers.markers.push_back(marker);
-        marker.points.clear();
-        
-        // Predicted trajectory line strip
-        Trajectory(all_markers, marker, i, predicted_trajectories, 4, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
-        all_markers.markers.push_back(marker);
-        marker.points.clear();
-
-        // Predicted trajectory arrows
-        Trajectory(all_markers, marker, i, predicted_trajectories, 0, color_trajectory[0], color_trajectory[1], color_trajectory[2], color_trajectory[3]);
-        marker.points.clear();
-
-        //Strategy 0 part
-        if(_DERG_strategy_id_.data == 0){
-
-            // error sphere at applied ref pose
-            InitMarker(marker, "error_sphere", i, 2, color_error_sphere[0], color_error_sphere[1], color_error_sphere[2], color_error_sphere[3]);
-            marker.pose.position.x = ref[0][i];
-            marker.pose.position.y = ref[1][i];
-            marker.pose.position.z = ref[2][i];
-            marker.scale.x = 2*Sa_.data;      // radius
-            marker.scale.y = 2*Sa_.data;      // radius
-            marker.scale.z = 2*Sa_.data;      // radius
-            all_markers.markers.push_back(marker);
-        }
-
-        //Strategy 1 part
-        if(_DERG_strategy_id_.data == 1 || _DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){  
-
-            // Blue tube
-
-            // cylinder1 between point link star and applied ref
-            p11.x = pstar[i].position.x;
-            p11.y = pstar[i].position.y;
-            p11.z = pstar[i].position.z;
-            p12.x = ref[0][i];
-            p12.y = ref[1][i];
-            p12.z = ref[2][i];
-            if(_DERG_strategy_id_.data == 1){
-                InitMarker(marker, "cylinder_strategy_1", i, 10, color_strategy_1_cylinder_strategy_1[0], color_strategy_1_cylinder_strategy_1[1], color_strategy_1_cylinder_strategy_1[2], color_strategy_1_cylinder_strategy_1[3], "CylinderShell_10mm");
-            }
-            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
-                InitMarker(marker, "cylinder_strategy_1", i, 10, color_strategy_2_3_4_cylinder_strategy_1[0], color_strategy_2_3_4_cylinder_strategy_1[1], color_strategy_2_3_4_cylinder_strategy_1[2], color_strategy_2_3_4_cylinder_strategy_1[3], "CylinderShell_10mm");
-            }
-            CylinderOrientation(p11, p12, cylinder_pose, cylinder_height);
-            marker.pose = cylinder_pose;
-            marker.scale.x = 0.001*2*Sa_min_perp.data;    // radius
-            marker.scale.y = 0.001*2*Sa_min_perp.data;    // radius
-            marker.scale.z = 0.001*cylinder_height;    // height
-            all_markers.markers.push_back(marker);
-
-            // hemisphere 1 at cylinder ends
-            if(_DERG_strategy_id_.data == 1){
-                InitMarker(marker, "hemisphere1_strategy_1", i, 10, color_strategy_1_cylinder_strategy_1[0], color_strategy_1_cylinder_strategy_1[1], color_strategy_1_cylinder_strategy_1[2], color_strategy_1_cylinder_strategy_1[3], "HemisphereShell_10mm");
-            }
-            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
-                InitMarker(marker, "hemisphere1_strategy_1", i, 10, color_strategy_2_3_4_cylinder_strategy_1[0], color_strategy_2_3_4_cylinder_strategy_1[1], color_strategy_2_3_4_cylinder_strategy_1[2], color_strategy_2_3_4_cylinder_strategy_1[3], "HemisphereShell_10mm");
-            }
-            marker.pose.position.x = ref[0][i];
-            marker.pose.position.y = ref[1][i];
-            marker.pose.position.z = ref[2][i];
-            marker.pose.orientation = cylinder_pose.orientation;
-            //ROS_INFO_STREAM("sphere 1 " << cylinder_pose.orientation);      
-            marker.scale.x = 0.001 * Sa_min_perp.data; 
-            marker.scale.y = 0.001 * Sa_min_perp.data; 
-            marker.scale.z = 0.001 * Sa_min_perp.data; 
-            all_markers.markers.push_back(marker);
-
-            // hemisphere 2 at cylinder ends
-            if(_DERG_strategy_id_.data == 1){
-                InitMarker(marker, "hemisphere2_strategy_1", i, 10, color_strategy_1_cylinder_strategy_1[0], color_strategy_1_cylinder_strategy_1[1], color_strategy_1_cylinder_strategy_1[2], color_strategy_1_cylinder_strategy_1[3], "HemisphereShell_10mm");
-            }
-            if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
-                InitMarker(marker, "hemisphere2_strategy_1", i, 10, color_strategy_2_3_4_cylinder_strategy_1[0], color_strategy_2_3_4_cylinder_strategy_1[1], color_strategy_2_3_4_cylinder_strategy_1[2], color_strategy_2_3_4_cylinder_strategy_1[3], "HemisphereShell_10mm");
-            }
-            marker.pose.position = pstar[i].position;
-            CylinderOrientation(p12, p11, cylinder_pose, cylinder_height);
-            marker.pose.orientation = cylinder_pose.orientation;
-            //ROS_INFO_STREAM("sphere 2 " << cylinder_pose.orientation);
-            marker.scale.x = 0.001 *Sa_min_perp.data; 
-            marker.scale.y = 0.001 *Sa_min_perp.data; 
-            marker.scale.z = 0.001 *Sa_min_perp.data; 
-            all_markers.markers.push_back(marker);
-        }
-
-        //Strategy 2 part
-        if(_DERG_strategy_id_.data == 2 || _DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 4){
-
-            // Blue tube
-
-            // cylinder between current pose and applied ref
-            p21.x = obj_pose[i].position.x;
-            p21.y = obj_pose[i].position.y;
-            p21.z = obj_pose[i].position.z;
-            p22.x = ref[0][i];
-            p22.y = ref[1][i];
-            p22.z = ref[2][i];
-            InitMarker(marker, "cylinder_strategy_2", i, 10, color_cylinder_strategy_2[0], color_cylinder_strategy_2[1], color_cylinder_strategy_2[2], color_cylinder_strategy_2[3], "CylinderShell_10mm");
-            CylinderOrientation(p21, p22, cylinder_pose, cylinder_height);
-            marker.pose = cylinder_pose;
-            marker.scale.x = 0.001*2*Sa_min_perp.data;    // radius
-            marker.scale.y = 0.001*2*Sa_min_perp.data;    // radius
-            marker.scale.z = 0.001*cylinder_height;    // height
-            all_markers.markers.push_back(marker);
-
-
-            // hemisphere 1 at cylinder ends
-            InitMarker(marker, "hemisphere1_strategy_2", i, 10, color_cylinder_strategy_2[0], color_cylinder_strategy_2[1], color_cylinder_strategy_2[2], color_cylinder_strategy_2[3], "HemisphereShell_10mm");
-            marker.pose.position.x = ref[0][i];
-            marker.pose.position.y = ref[1][i];
-            marker.pose.position.z = ref[2][i];
-            marker.pose.orientation = cylinder_pose.orientation;        
-            marker.scale.x = 0.001*Sa_min_perp.data; 
-            marker.scale.y = 0.001*Sa_min_perp.data; 
-            marker.scale.z = 0.001*Sa_min_perp.data; 
-            all_markers.markers.push_back(marker);
-
-            // hemisphere 1 at cylinder ends
-            InitMarker(marker, "hemisphere2_strategy_2", i, 10, color_cylinder_strategy_2[0], color_cylinder_strategy_2[1], color_cylinder_strategy_2[2], color_cylinder_strategy_2[3], "HemisphereShell_10mm");
-            CylinderOrientation(p22, p21, cylinder_pose, cylinder_height);
-            marker.pose.position = obj_pose[i].position;
-            marker.pose.orientation = cylinder_pose.orientation;        
-            marker.scale.x = 0.001*Sa_min_perp.data; 
-            marker.scale.y = 0.001*Sa_min_perp.data; 
-            marker.scale.z = 0.001*Sa_min_perp.data; 
-            all_markers.markers.push_back(marker);
-        }
-
-        //Strategy 3 part
-        if(_DERG_strategy_id_.data == 3 || _DERG_strategy_id_.data == 5){
-
-            // Orange tube
-
-            // cylinder3 between point link star and applied ref
-            p31.x = obj_pose[i].position.x;
-            p31.y = obj_pose[i].position.y;
-            p31.z = obj_pose[i].position.z;
-            p32.x = ref[0][i];
-            p32.y = ref[1][i];
-            p32.z = ref[2][i];
-
-            InitMarker(marker, "cylinder_strategy_3", i, 10, color_cylinder_strategy_3[0], color_cylinder_strategy_3[1], color_cylinder_strategy_3[2], color_cylinder_strategy_3[3], "CylinderShell_10mm");
-            CylinderOrientation(p31, p32, cylinder_pose, cylinder_height);
-            marker.pose = cylinder_pose;
-            marker.scale.x = 0.001*2*future_tubes[i].min_radius;   // radius
-            marker.scale.y = 0.001*2*future_tubes[i].min_radius;   // radius
-            marker.scale.z = 0.001*cylinder_height;                // height
-            all_markers.markers.push_back(marker);
-
-            // hemisphere1 at cylinder ends
-            InitMarker(marker, "hemisphere1_strategy_3", i, 10, color_cylinder_strategy_3[0], color_cylinder_strategy_3[1], color_cylinder_strategy_3[2], color_cylinder_strategy_3[3], "HemisphereShell_10mm");
-            marker.pose.position.x = ref[0][i];
-            marker.pose.position.y = ref[1][i];
-            marker.pose.position.z = ref[2][i];
-            marker.pose.orientation = cylinder_pose.orientation;     
-            marker.scale.x = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            marker.scale.y = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            marker.scale.z = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            all_markers.markers.push_back(marker);
-
-            // hemisphere2 at cylinder ends
-            InitMarker(marker, "hemisphere2_strategy_3", i, 10, color_cylinder_strategy_3[0], color_cylinder_strategy_3[1], color_cylinder_strategy_3[2], color_cylinder_strategy_3[3], "HemisphereShell_10mm");
-            marker.pose.position = obj_pose[i].position;
-            CylinderOrientation(p32, p31, cylinder_pose, cylinder_height);
-            marker.pose.orientation = cylinder_pose.orientation;
-            marker.scale.x = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            marker.scale.y = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            marker.scale.z = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            all_markers.markers.push_back(marker);
-        }
-
-        //Strategy 4 part
-        if(_DERG_strategy_id_.data == 4){
-            
-            // Orange tube
-
-            // cylinder3 between point link star and applied ref
-            p41.x = future_tubes[i].p1.x;
-            p41.y = future_tubes[i].p1.y;
-            p41.z = future_tubes[i].p1.z;
-            p42.x = future_tubes[i].p0.x;
-            p42.y = future_tubes[i].p0.y;
-            p42.z = future_tubes[i].p0.z;
-            
-            InitMarker(marker, "cylinder_strategy_4", i, 10, color_cylinder_strategy_4[0], color_cylinder_strategy_4[1], color_cylinder_strategy_4[2], color_cylinder_strategy_4[3], "CylinderShell_10mm");
-            CylinderOrientation(p41, p42, cylinder_pose, cylinder_height);
-            marker.pose = cylinder_pose;
-            marker.scale.x = 0.001*2*future_tubes[i].min_radius;   // Sa_min_perp radius
-            marker.scale.y = 0.001*2*future_tubes[i].min_radius;   // Sa_min_perp radius
-            marker.scale.z = 0.001*cylinder_height;                // height
-            all_markers.markers.push_back(marker);
-
-            // Red hemisphere1 at cylinder ends
-            InitMarker(marker, "hemisphere1_strategy_4", i, 10, color_hemisphere1_strategy_4[0], color_hemisphere1_strategy_4[1], color_hemisphere1_strategy_4[2], color_hemisphere1_strategy_4[3], "HemisphereShell_10mm");
-            marker.pose.position.x = future_tubes[i].p0.x;
-            marker.pose.position.y = future_tubes[i].p0.y;
-            marker.pose.position.z = future_tubes[i].p0.z;
-            marker.pose.orientation = cylinder_pose.orientation;     
-            marker.scale.x = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            marker.scale.y = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            marker.scale.z = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            all_markers.markers.push_back(marker);
-
-            // Red hemisphere2 at cylinder ends
-            InitMarker(marker, "hemisphere2_strategy_4", i, 10, color_hemisphere2_strategy_4[0], color_hemisphere2_strategy_4[1], color_hemisphere2_strategy_4[2], color_hemisphere2_strategy_4[3], "HemisphereShell_10mm");
-            marker.pose.position.x = future_tubes[i].p1.x;
-            marker.pose.position.y = future_tubes[i].p1.y;
-            marker.pose.position.z = future_tubes[i].p1.z;
-            CylinderOrientation(p42, p41, cylinder_pose, cylinder_height);
-            marker.pose.orientation = cylinder_pose.orientation;
-            marker.scale.x = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            marker.scale.y = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            marker.scale.z = 0.001*future_tubes[i].min_radius;   // Sa_min_perp radius
-            all_markers.markers.push_back(marker);
-        }
-
-        //Strategy 5 part
-        if(_DERG_strategy_id_.data == 5){
-        }
-
-    }
-
-    // Red lines between uavs current position
-    RedLines(all_markers, marker, obj_pose, number_uav, Ra, color_red_lines[0], color_red_lines[1], color_red_lines[2], color_red_lines[3]);
-
-    // Shortest distance line (which is initialy for strategy 5)
-    ShortestDistanceLines(all_markers, marker, predicted_trajectories, Ra, number_uav);
-    
-    marker_publisher_.publish(all_markers);
-
-}
-
-void PublishFrame(std::vector<geometry_msgs::PoseStamped> frame_pose,const std::vector<mrs_msgs::Reference>& goal_pose, int number_uav){
-    geometry_msgs::PoseArray frame_poses;
-
-    frame_poses.header.seq = frame_pose[0].header.seq;
-    frame_poses.header.stamp = ros::Time::now();
-    frame_poses.header.frame_id = "/common_origin";
-
-    for(int i=0; i<number_uav; i++){
-        FrameOrientation(frame_pose[i].pose, goal_pose[i]);
-        frame_pose[i].pose.position = goal_pose[i].position;
-        frame_poses.poses.push_back(frame_pose[i].pose);
-           
-    }
-    
-    frame_publisher_.publish(frame_poses);
-}
-
-// | ---------------------------------- MAIN ---------------------------------- |
-
-int main(int argc, char **argv){
-    
-    // Initialization
-    // ^^^^^^^^^^^^^^
-
-    // init node
-    ros::init(argc, argv,"current_pose_sphere");
-    ros::NodeHandle n;
-    ros::Rate r(30);
-
-    ros::NodeHandle nh;
-    
-    // Subscribers and publishers
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    // Subscribe
-    diagnostics_subscriber_ = n.subscribe("mrs_drone_spawner/diagnostics", 1, DiagnosticsCallback);
-    DERG_strategy_id_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/derg_strategy_id", 1, DERGStrategyIdCallback);
-    Sa_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_max", 1, SaCallback);
-    Sa_perp_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/sa_perp_max", 1, SaPerpCallback);
-    tube_min_radius_subscriber_ = n.subscribe("uav1/control_manager/dergbryan_tracker/tube_min_radius", 1, TubeMinRadiusCallback);
-    
-
-    //  We wait until we receive the message for the diagnostics_subscriber_
-    while(!test1){
-        ros::spinOnce();
-        r.sleep();
-
-    }
-
-    number_of_uav = diagnostics.active_vehicles.size();
-
-    // Load parameters from visual.yaml file
-    nh.getParam("/visualization_brubotics/NUMBER_OF_POINTS_TRAJECTORY", number_of_point_traj);
-    nh.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/r", color_current_pose_sphere[0]);
-    nh.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/g", color_current_pose_sphere[1]);
-    nh.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/b", color_current_pose_sphere[2]);
-    nh.getParam("/visualization_brubotics/all_strategies/current_pose_sphere/alpha", color_current_pose_sphere[3]);
-    nh.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/r", color_applied_ref_sphere[0]);
-    nh.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/g", color_applied_ref_sphere[1]);
-    nh.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/b", color_applied_ref_sphere[2]);
-    nh.getParam("/visualization_brubotics/all_strategies/applied_ref_sphere/alpha", color_applied_ref_sphere[3]);   
-    nh.getParam("/visualization_brubotics/all_strategies/trajectory/r", color_trajectory[0]);
-    nh.getParam("/visualization_brubotics/all_strategies/trajectory/g", color_trajectory[1]);
-    nh.getParam("/visualization_brubotics/all_strategies/trajectory/b", color_trajectory[2]);
-    nh.getParam("/visualization_brubotics/all_strategies/trajectory/alpha", color_trajectory[3]);
-    nh.getParam("/visualization_brubotics/strategy_0/error_sphere/r", color_error_sphere[0]);
-    nh.getParam("/visualization_brubotics/strategy_0/error_sphere/g", color_error_sphere[1]);
-    nh.getParam("/visualization_brubotics/strategy_0/error_sphere/b", color_error_sphere[2]);
-    nh.getParam("/visualization_brubotics/strategy_0/error_sphere/alpha", color_error_sphere[3]);
-    nh.getParam("/visualization_brubotics/all_strategies/red_lines/r", color_red_lines[0]);
-    nh.getParam("/visualization_brubotics/all_strategies/red_lines/g", color_red_lines[1]);
-    nh.getParam("/visualization_brubotics/all_strategies/red_lines/b", color_red_lines[2]);
-    nh.getParam("/visualization_brubotics/all_strategies/red_lines/alpha", color_red_lines[3]);
-    nh.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/r", color_shortest_distance_lines[0]);
-    nh.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/g", color_shortest_distance_lines[1]);
-    nh.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/b", color_shortest_distance_lines[2]);
-    nh.getParam("/visualization_brubotics/all_strategies/shortest_distance_lines/alpha", color_shortest_distance_lines[3]);
-    nh.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/r", color_desired_ref_sphere[0]);
-    nh.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/g", color_desired_ref_sphere[1]);
-    nh.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/b", color_desired_ref_sphere[2]);
-    nh.getParam("/visualization_brubotics/all_strategies/desired_ref_sphere/alpha", color_desired_ref_sphere[3]);
-    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/r", color_strategy_1_cylinder_strategy_1[0]);
-    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/g", color_strategy_1_cylinder_strategy_1[1]);
-    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/b", color_strategy_1_cylinder_strategy_1[2]);
-    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_1/cylinder_strategy_1/alpha", color_strategy_1_cylinder_strategy_1[3]);
-    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/r", color_strategy_2_3_4_cylinder_strategy_1[0]);
-    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/g", color_strategy_2_3_4_cylinder_strategy_1[1]);
-    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/b", color_strategy_2_3_4_cylinder_strategy_1[2]);
-    nh.getParam("/visualization_brubotics/strategy_1_tube/strategy_2_3_4/cylinder_strategy_1/alpha", color_strategy_2_3_4_cylinder_strategy_1[3]);
-    nh.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/r", color_cylinder_strategy_2[0]);
-    nh.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/g", color_cylinder_strategy_2[1]);
-    nh.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/b", color_cylinder_strategy_2[2]);
-    nh.getParam("/visualization_brubotics/strategy_2_tube/cylinder_strategy_2/alpha", color_cylinder_strategy_2[3]);
-    nh.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/r", color_cylinder_strategy_3[0]);
-    nh.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/g", color_cylinder_strategy_3[1]);
-    nh.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/b", color_cylinder_strategy_3[2]);
-    nh.getParam("/visualization_brubotics/strategy_3_tube/cylinder_strategy_3/alpha", color_cylinder_strategy_3[3]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/r", color_cylinder_strategy_4[0]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/g", color_cylinder_strategy_4[1]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/b", color_cylinder_strategy_4[2]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/cylinder_strategy_4/alpha", color_cylinder_strategy_4[3]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/r", color_hemisphere1_strategy_4[0]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/g", color_hemisphere1_strategy_4[1]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/b", color_hemisphere1_strategy_4[2]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere1_strategy_4/alpha", color_hemisphere1_strategy_4[3]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/r", color_hemisphere2_strategy_4[0]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/g", color_hemisphere2_strategy_4[1]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/b", color_hemisphere2_strategy_4[2]);
-    nh.getParam("/visualization_brubotics/strategy_4_tube/hemisphere2_strategy_4/alpha", color_hemisphere2_strategy_4[3]);
-    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/r", UAV_text_label[0]);
-    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/g", UAV_text_label[1]);
-    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/b", UAV_text_label[2]);
-    nh.getParam("/visualization_brubotics/all_strategies/UAV_text_label/alpha", UAV_text_label[3]);
-
-    // create subscribers
-    std::vector<boost::function<void (const geometry_msgs::PoseArray::ConstPtr&)>> f1;
-    f1.resize(MAX_UAV_NUMBER);
-    std::vector<boost::function<void (const mrs_msgs::FutureTrajectory::ConstPtr&)>> f2;
-    f2.resize(MAX_UAV_NUMBER);
-    std::vector<boost::function<void (const geometry_msgs::Pose::ConstPtr&)>> f3;
-    f3.resize(MAX_UAV_NUMBER);
-    std::vector<boost::function<void (const mrs_msgs::FutureTrajectory::ConstPtr&)>> f4;
-    f4.resize(MAX_UAV_NUMBER);
-    std::vector<boost::function<void (const trackers_brubotics::FutureTrajectoryTube::ConstPtr&)>> f5;
-    f5.resize(MAX_UAV_NUMBER);
-    std::vector<boost::function<void (const mrs_msgs::ReferenceStamped::ConstPtr&)>> f6;
-    f6.resize(MAX_UAV_NUMBER);
-
-    for(int i=0; i<diagnostics.active_vehicles.size(); i++){
-
-        // create subscribers for current uav pose
-        f1[i] = boost::bind(CurrentPoseCallback, _1, i+1);
-        uav_current_pose_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/custom_predicted_poses", 10, f1[i]);
-
-        // create subscribers for uav applied ref
-        f2[i] = boost::bind(AppliedRefCallback, _1, i+1);
-        uav_applied_ref_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/uav_applied_ref", 10, f2[i]);
-
-        // create subscribers for uav point link star
-        f3[i] = boost::bind(PointLinkStarCallback, _1, i+1);
-        point_link_star_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] +"/control_manager/dergbryan_tracker/point_link_star", 10, f3[i]);
-
-        // create subscribers for uav predicted trajectory
-        f4[i] = boost::bind(PredictedTrajectoryCallback, _1, i+1);
-        predicted_trajectory_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/predicted_trajectory", 10, f4[i]);
-
-        // create subscribers for uav future tube
-        f5[i] = boost::bind(FutureTubeCallback, _1, i+1);
-        future_tube_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] +"/control_manager/dergbryan_tracker/future_trajectory_tube", 10, f5[i]);
-
-        // create subscribers for uav future tube
-        f6[i] = boost::bind(GoalPoseCallback, _1, i+1);
-        goal_pose_subscribers_[i] = n.subscribe(diagnostics.active_vehicles[i] + "/control_manager/dergbryan_tracker/goal_pose", 10, f6[i]);
-    }   
-
-    while(!test2){
-        ros::spinOnce();
-        r.sleep();
-    }
-
-    // Publish topics
-    frame_publisher_ = n.advertise<geometry_msgs::PoseArray>("visualization_brubotics/goal_pose_frames", 10);
-    marker_publisher_ = n.advertise<visualization_msgs::MarkerArray>("visualization_brubotics/markers", 10);
-
-    // Display
-    // ^^^^^^^
-
-    while(ros::ok){
-        PublishMarkers(uav_current_poses, uav_applied_ref, point_link_stars, future_tubes, predicted_trajectories, number_of_uav);  
-        PublishFrame(frame_pose, goal_pose, number_of_uav);
-        ros::spinOnce();
-        r.sleep();
-    }
-
-    return 0;
-
+void ERGVisualization::deleteAllMarkers(){
+    marker_array.markers.clear();
 }
