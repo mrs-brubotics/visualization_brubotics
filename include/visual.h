@@ -97,6 +97,7 @@ void DiagnosticsCallback(const mrs_msgs::SpawnerDiagnostics::ConstPtr& diagnosti
 void DERGStrategyIdCallback(const std_msgs::Int32::ConstPtr& msg);
 void PredictedTrajectoryCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
 void GoalPoseCallback(const mrs_msgs::ReferenceStamped::ConstPtr& msg, int uav_number);
+void AppliedRefPoseCallback(const mrs_msgs::ReferenceStamped::ConstPtr& msg, int uav_number);
 
 void CurrentPoseCallback(const geometry_msgs::PoseArray::ConstPtr& msg, int uav_number);
 void AppliedRefCallback(const mrs_msgs::FutureTrajectory::ConstPtr& msg, int uav_number);
@@ -107,5 +108,5 @@ void SaCallback(const std_msgs::Int32::ConstPtr& msg);
 void SaPerpCallback(const std_msgs::Int32::ConstPtr& msg);
 void TubeMinRadiusCallback(const std_msgs::Float32::ConstPtr& msg);
 
-void PublishFrame(std::vector<geometry_msgs::PoseStamped> frame_pose,const std::vector<mrs_msgs::Reference>& goal_pose, int number_uav);
+void PublishFrame(std::vector<geometry_msgs::PoseStamped> frame_pose,const std::vector<mrs_msgs::Reference>& goal_pose, int number_uav, ros::Publisher frame_publisher_);
 void FrameOrientation(geometry_msgs::Pose& frame, const mrs_msgs::Reference& goal_pose);
