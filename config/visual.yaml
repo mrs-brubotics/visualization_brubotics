@@ -1,10 +1,10 @@
 
-NUMBER_OF_POINTS_TRAJECTORY: 50  #set the number of point for the predicted trajectory ( >0 ! )
+NUMBER_OF_POINTS_TRAJECTORY: 50  # set the number of point for the predicted trajectory ( >0 ! )
 
-all_strategies:              #All the RGB and alpha(transparency) parameters for 
-  current_pose_sphere:       #every markers, first identation for the wich stategy use this parameter
-    r: 0.6                   #second identation name of the marker(same as topic name also)   
-    g: 0.6                   #third indentation for RGB and alpha
+all_strategies:              # All the RGB and alpha (transparency) parameters for 
+  current_pose_sphere:       # every markers, first identation for the wich stategy use this parameter
+    r: 0.6                   # second identation name of the marker(same as topic name also)   
+    g: 0.6                   # third indentation for RGB and alpha
     b: 0.6
     alpha: 0.1
   applied_ref_sphere:
@@ -38,7 +38,7 @@ all_strategies:              #All the RGB and alpha(transparency) parameters for
     b: 0.
     alpha: 1.
 
-strategy_1_tube:           #stategy 1 tube has one more identation, because RGBA parameter is not the same for every stategy
+strategy_1_tube:           # stategy 1 tube has one more identation, because RGBA parameter is not the same for every stategy
   strategy_1:
     cylinder_strategy_1:
       r: 0.4
@@ -90,7 +90,7 @@ strategy_0:
     b: 1.0
     alpha: 0.1
 
-trajectory:                  #radius, diameter and width for trajectory markers and line markers
+trajectory:                  # radius, diameter and width for trajectory markers and line markers
   spheres:
     radius: 0.05
   arrow:
