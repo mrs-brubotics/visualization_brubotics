@@ -305,7 +305,7 @@ int main(int argc, char** argv){
                                                   color_line_between_current_positions[3]);
             visualization_rviz.addCurrentPoseLines(uav_current_poses,
                                            i,
-                                           "red lines",
+                                           "current pose lines",
                                            current_position_line_width,
                                            Ra,
                                            number_of_uav);
