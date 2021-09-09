@@ -68,20 +68,20 @@ strategy_3_tube:
 
 strategy_4_tube:
   cylinder_strategy_4:
-    r: 0.749
+    r: 1.0 #0.749
     g: 0.647
-    b: 0.412
-    alpha: 0.25
+    b: 0.0 #0.412
+    alpha: 0.15 #0.25
   hemisphere1_strategy_4:
-    r: 0.8
-    g: 0.0
-    b: 0.0
-    alpha: 0.25
+    r: 1.0 #0.749 #0.8
+    g: 0.647 #0.0
+    b: 0.0 #0.412 #0.0
+    alpha: 0.15 #0.25
   hemisphere2_strategy_4:
-    r: 0.8
-    g: 0.0
-    b: 0.0
-    alpha: 0.25
+    r: 1.0 #0.749 #0.8
+    g: 0.647 #0.0
+    b: 0.0 #0.412 #0.0
+    alpha: 0.15 #0.25
 
 strategy_0:
   error_sphere:
