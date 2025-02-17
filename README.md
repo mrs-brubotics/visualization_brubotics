@@ -1,6 +1,4 @@
 # visualization_brubotics
-Visualization developed by the summer 2021 BruBotics interns.
-
 <p align="center">
   <img width="485" height="424" src="https://github.com/mrs-brubotics/visualization_brubotics/blob/main/.fig/derg4.png">
 </p>
